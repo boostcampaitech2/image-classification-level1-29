@@ -8,7 +8,16 @@ import pandas as pd
 from PIL import Image
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-train_dir = '/opt/ml/input/data/train'
+TRAIN_DIR = '/opt/ml/input/data/train'
+TEST_DIR = '/opt/ml/input/data/eval'
+
+TRAIN_EXPAND = 'train_expand_sex.csv'
+# 'train_expand_mask.csv'
+# 'train_expand_age.csv'
+SUBMISSION_FILE = 'submission_sex.csv'
+# 'submission_mask.csv'
+# 'submission_age.csv'
+
 
 class TrainDataset(Dataset):
     def __init__(self, img_paths, targets, transform):
@@ -27,10 +36,8 @@ class TrainDataset(Dataset):
     def __len__(self):
         return len(self.img_paths)
 
-submission = pd.read_csv(os.path.join(train_dir, 'train_expand_sex.csv'))
-# submission = pd.read_csv(os.path.join(train_dir, 'train_expand_mask.csv'))
-# submission = pd.read_csv(os.path.join(train_dir, 'train_expand_age.csv'))
-image_dir = os.path.join(train_dir, 'images')
+submission = pd.read_csv(os.path.join(TRAIN_DIR, TRAIN_EXPAND))
+image_dir = os.path.join(TRAIN_DIR, 'images')
 
 image_paths = [os.path.join(image_dir, f'{path}/{file}') for path, file in zip(submission.path, submission.file)]
 targets = [target for target in submission.target]
@@ -75,10 +82,8 @@ for epoch in range(2):
         batch_loss = train_batch(x.cuda(), y.cuda().long(), model, optimizer, loss_fn)
 
 
-test_dir = '/opt/ml/input/data/eval'
-
-submission = pd.read_csv(os.path.join(test_dir, 'info.csv'))
-image_dir = os.path.join(test_dir, 'images')
+submission = pd.read_csv(os.path.join(TEST_DIR, 'info.csv'))
+image_dir = os.path.join(TEST_DIR, 'images')
 
 image_paths = [os.path.join(image_dir, img_id) for img_id in submission.ImageID]
 transform = transforms.Compose([
@@ -119,7 +124,5 @@ for images in loader:
         all_predictions.extend(pred.cpu().numpy())
 submission['ans'] = all_predictions
 
-submission.to_csv(os.path.join(test_dir, 'submission_sex.csv'), index=False)
-# submission.to_csv(os.path.join(test_dir, 'submission_mask.csv'), index=False)
-# submission.to_csv(os.path.join(test_dir, 'submission_age.csv'), index=False)
+submission.to_csv(os.path.join(test_dir, SUBMISSION_FILE), index=False)
 print('test inference is done!')
