@@ -3,21 +3,23 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, models
 from torchsummary import summary
+import matplotlib.pyplot as plt
 import os
 import pandas as pd
 from PIL import Image
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 
 TRAIN_DIR = '/opt/ml/input/data/train'
 TEST_DIR = '/opt/ml/input/data/eval'
 
-TRAIN_EXPAND = 'train_expand_sex.csv'
+TRAIN_EXPAND = 'train_expand_age.csv'
 # 'train_expand_mask.csv'
-# 'train_expand_age.csv'
-SUBMISSION_FILE = 'submission_sex.csv'
+# 'train_expand_sex.csv'
+SUBMISSION_FILE = 'submission_age.csv'
 # 'submission_mask.csv'
-# 'submission_age.csv'
-
+# 'submission_sex.csv'
+CLASS_NUM = 3
 
 class TrainDataset(Dataset):
     def __init__(self, img_paths, targets, transform):
@@ -47,7 +49,7 @@ transform = transforms.Compose([
     transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.2, 0.2, 0.2)),
 ])
 dataset = TrainDataset(image_paths, targets, transform)
-train_loader = DataLoader(dataset, batch_size=50, shuffle=True, num_workers=2)
+train_loader = DataLoader(dataset, batch_size=50, shuffle=True, num_workers=2, drop_last=True)
 
 def train_batch(x, y, model, opt, loss_fn):
     model.train()
@@ -64,15 +66,17 @@ def get_model():
     for param in model.parameters():
         param.requires_grad = False
             
-    model.fc = nn.Linear(2048, 2)
+    model.fc = nn.Sequential(
+        nn.Linear(2048, CLASS_NUM)
+    )
     
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr= 1e-3)
     return model.to(device), loss_fn, optimizer
 
 model, loss_fn, optimizer = get_model()
-# print(model)
-# summary(model, (3,512,384))
+print(model)
+summary(model, (3,512,384))
 
 for epoch in range(2):
     print(f" epoch {epoch + 1}/2")
@@ -114,8 +118,8 @@ loader = DataLoader(
     shuffle=False
 )
 
-device = torch.device('cuda')
 all_predictions = []
+model.eval()
 for images in loader:
     with torch.no_grad():
         images = images.to(device)
@@ -124,5 +128,5 @@ for images in loader:
         all_predictions.extend(pred.cpu().numpy())
 submission['ans'] = all_predictions
 
-submission.to_csv(os.path.join(test_dir, SUBMISSION_FILE), index=False)
+submission.to_csv(os.path.join(TEST_DIR, SUBMISSION_FILE), index=False)
 print('test inference is done!')
