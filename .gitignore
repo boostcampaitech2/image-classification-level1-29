@@ -10,6 +10,7 @@
 *.userosscache
 *.sln.docstates
 data/
+kbs/code/models/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
