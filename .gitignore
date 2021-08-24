@@ -170,7 +170,7 @@ DocProject/Help/html
 
 # Click-Once directory
 publish/
-
+kbs/models/
 # Publish Web Output
 *.[Pp]ublish.xml
 *.azurePubxml
