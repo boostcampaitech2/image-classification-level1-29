@@ -10,6 +10,7 @@
 *.userosscache
 *.sln.docstates
 data/
+kbs/code/models/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -170,7 +171,7 @@ DocProject/Help/html
 
 # Click-Once directory
 publish/
-
+kbs/models/
 # Publish Web Output
 *.[Pp]ublish.xml
 *.azurePubxml
@@ -252,6 +253,7 @@ UpgradeLog*.XML
 UpgradeLog*.htm
 ServiceFabricBackup/
 *.rptproj.bak
+*.pth 
 
 # SQL Server files
 *.mdf
