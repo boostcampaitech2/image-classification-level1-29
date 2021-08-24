@@ -53,7 +53,8 @@ nunit-*.xml
 [Dd]ebugPS/
 [Rr]eleasePS/
 dlldata.c
-kbs/input/
+**/input/
+.vscode/
 # Benchmark Results
 BenchmarkDotNet.Artifacts/
 
