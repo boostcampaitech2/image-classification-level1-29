@@ -4,9 +4,9 @@ import model
 
 gyudel, loss_fn, optim = model.get_model()
 
-def train_batch(img, label, model, optim, loss_fn):
-    model.train()
-    pred =model(img)
+def train_batch(img, label, _model, optim, loss_fn):
+    _model.train()
+    pred = _model(img)
     batch_loss = loss_fn(pred, label)
     
     batch_loss.backward()
