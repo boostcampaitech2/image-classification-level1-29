@@ -25,15 +25,16 @@ device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 
 CLASS_NUM=18
 
-data_dir = "/opt/ml/input/data/train/"
-img_dir = f"{data_dir}/images"
-df_path = f"{data_dir}/train.csv"
+DATA_DIR = "/opt/ml/input/data/train/"
+IMG_DIR = f"{DATA_DIR}/images"
+DF_PATH = f"{DATA_DIR}/train.csv"
+TEST_DIR = "/opt/ml/input/data/eval/"
 
-img_height = 512
-img_width = 384
-batch_size = 128
-lr = 0.001
-epoch = 10
+IMG_HEIGHT = 512
+IMG_WIDTH = 384
+BATCH_SIZE = 128
+LR = 0.001
+EPOCH = 10
 
 mask_labels=[]
 age_labels=[]
@@ -41,4 +42,4 @@ gender_labels=[]
 imgs=[]
 ans = []
     
-df = pd.read_csv(df_path)
+df = pd.read_csv(DF_PATH)

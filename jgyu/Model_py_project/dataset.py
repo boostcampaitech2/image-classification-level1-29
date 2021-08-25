@@ -1,7 +1,6 @@
 import config
 from config import *
 
-#mask labeling
 def get_labels_images(image_dirs : str):
     
     for path in image_dirs:
@@ -16,13 +15,6 @@ def get_labels_images(image_dirs : str):
 
                 imgs.append(image)
 
-
-def age_label_func(x):
-    if x<30: return 0
-    elif 30<=x<60: return 1
-    else: return 2
-
-
 def labeling_gen_age():
     for gender in df['gender']:
         gender_labels.extend([gender] * 7)
@@ -32,24 +24,24 @@ def labeling_gen_age():
         
 
 def get_dataFrame():
-    df = pd.read_csv(df_path)
-
-    df['gender'] = df['gender'].map({'female':1, 'male':0})
-    df['age'] = df['age'].map(age_label_func)
+    df['gender'] = df['gender'].map({'female': 1, 'male': 0})
+    df['age'] = df['age'].map(lambda x: 0 if int(x) < 30 else 1 if int(x) < 60 else 2)
 
 
 def get_info():
     image_dirs=[]
 
-    for path in df.path:
-        image_dirs.append(os.path.join(img_dir, path))
-
-    get_labels_images(image_dirs)
     get_dataFrame()
+
+    for path in df.path:
+        image_dirs.append(os.path.join(IMG_DIR, path))
+    
+    get_labels_images(image_dirs)
     labeling_gen_age()
 
+
     for idx in range(len(mask_labels)):
-        ans.append(mask_labels[idx]*6 + gender_labels[idx]*3 + age_labels[idx])
+        ans.append(int(mask_labels[idx])*6 + int(gender_labels[idx])*3 + int(age_labels[idx]))
     
 
 class TrainDataset(Dataset):
@@ -66,3 +58,21 @@ class TrainDataset(Dataset):
             image = self.transform(image)
 
         return image, label
+    
+    def __len__(self):
+        return len(self.img_paths)
+
+class TestDataset(Dataset):
+    def __init__(self, img_paths, transform):
+        self.img_paths = img_paths
+        self.transform = transform
+
+    def __getitem__(self, index):
+        image = Image.open(self.img_paths[index])
+
+        if self.transform:
+            image = self.transform(image)
+        return image
+
+    def __len__(self):
+        return len(self.img_paths)
