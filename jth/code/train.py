@@ -7,15 +7,26 @@ import matplotlib.pyplot as plt
 import os
 import pandas as pd
 from PIL import Image
+import argparse
+
+parser = argparse.ArgumentParser(description='Mask Classification')
+parser.add_argument('--input-file', '-i', required=True, type=str, 
+                    help='input filename including .csv')
+parser.add_argument('--output-file', '-o', required=True, type=str, 
+                    help='output filename including .csv')
+parser.add_argument('--class-num', '-cn', required=True, type=int, 
+                    help='number of classes to classify')
+
+args = parser.parse_args()
 
 device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 
 TRAIN_DIR = '/opt/ml/input/data/train'
 TEST_DIR = '/opt/ml/input/data/eval'
 
-TRAIN_EXPAND = 'train_expand.csv'
-SUBMISSION_FILE = 'submission.csv'
-CLASS_NUM = 18
+TRAIN_EXPAND = args.input_file
+SUBMISSION_FILE = args.output_file
+CLASS_NUM = args.class_num
 
 class TrainDataset(Dataset):
     def __init__(self, img_paths, targets, transform):
@@ -59,8 +70,8 @@ def train_batch(x, y, model, opt, loss_fn):
 def get_model():
     model = models.resnext50_32x4d(pretrained=True)
     
-    for param in model.parameters():
-        param.requires_grad = False
+    # for param in model.parameters():
+    #     param.requires_grad = False
             
     model.fc = nn.Sequential(
         nn.Linear(2048, CLASS_NUM)
