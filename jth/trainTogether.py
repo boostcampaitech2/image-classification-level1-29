@@ -3,12 +3,19 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, models
 from torchsummary import summary
+import matplotlib.pyplot as plt
 import os
 import pandas as pd
 from PIL import Image
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-train_dir = '/opt/ml/input/data/train'
+device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
+
+TRAIN_DIR = '/opt/ml/input/data/train'
+TEST_DIR = '/opt/ml/input/data/eval'
+
+TRAIN_EXPAND = 'train_expand.csv'
+SUBMISSION_FILE = 'submission.csv'
+CLASS_NUM = 18
 
 class TrainDataset(Dataset):
     def __init__(self, img_paths, targets, transform):
@@ -27,10 +34,8 @@ class TrainDataset(Dataset):
     def __len__(self):
         return len(self.img_paths)
 
-submission = pd.read_csv(os.path.join(train_dir, 'train_expand_sex.csv'))
-# submission = pd.read_csv(os.path.join(train_dir, 'train_expand_mask.csv'))
-# submission = pd.read_csv(os.path.join(train_dir, 'train_expand_age.csv'))
-image_dir = os.path.join(train_dir, 'images')
+submission = pd.read_csv(os.path.join(TRAIN_DIR, TRAIN_EXPAND))
+image_dir = os.path.join(TRAIN_DIR, 'images')
 
 image_paths = [os.path.join(image_dir, f'{path}/{file}') for path, file in zip(submission.path, submission.file)]
 targets = [target for target in submission.target]
@@ -40,7 +45,7 @@ transform = transforms.Compose([
     transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.2, 0.2, 0.2)),
 ])
 dataset = TrainDataset(image_paths, targets, transform)
-train_loader = DataLoader(dataset, batch_size=50, shuffle=True, num_workers=2)
+train_loader = DataLoader(dataset, batch_size=50, shuffle=True, num_workers=2, drop_last=True)
 
 def train_batch(x, y, model, opt, loss_fn):
     model.train()
@@ -57,28 +62,28 @@ def get_model():
     for param in model.parameters():
         param.requires_grad = False
             
-    model.fc = nn.Linear(2048, 2)
+    model.fc = nn.Sequential(
+        nn.Linear(2048, CLASS_NUM)
+    )
     
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr= 1e-3)
     return model.to(device), loss_fn, optimizer
 
 model, loss_fn, optimizer = get_model()
-# print(model)
-# summary(model, (3,512,384))
+print(model)
+summary(model, (3,512,384))
 
-for epoch in range(2):
-    print(f" epoch {epoch + 1}/2")
+for epoch in range(10):
+    print(f" epoch {epoch + 1}/10")
 
     for ix, batch in enumerate(iter(train_loader)):
         x, y = batch
         batch_loss = train_batch(x.cuda(), y.cuda().long(), model, optimizer, loss_fn)
 
 
-test_dir = '/opt/ml/input/data/eval'
-
-submission = pd.read_csv(os.path.join(test_dir, 'info.csv'))
-image_dir = os.path.join(test_dir, 'images')
+submission = pd.read_csv(os.path.join(TEST_DIR, 'info.csv'))
+image_dir = os.path.join(TEST_DIR, 'images')
 
 image_paths = [os.path.join(image_dir, img_id) for img_id in submission.ImageID]
 transform = transforms.Compose([
@@ -109,8 +114,8 @@ loader = DataLoader(
     shuffle=False
 )
 
-device = torch.device('cuda')
 all_predictions = []
+model.eval()
 for images in loader:
     with torch.no_grad():
         images = images.to(device)
@@ -119,7 +124,5 @@ for images in loader:
         all_predictions.extend(pred.cpu().numpy())
 submission['ans'] = all_predictions
 
-submission.to_csv(os.path.join(test_dir, 'submission_sex.csv'), index=False)
-# submission.to_csv(os.path.join(test_dir, 'submission_mask.csv'), index=False)
-# submission.to_csv(os.path.join(test_dir, 'submission_age.csv'), index=False)
+submission.to_csv(os.path.join(TEST_DIR, SUBMISSION_FILE), index=False)
 print('test inference is done!')
