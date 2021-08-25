@@ -8,13 +8,13 @@ def get_labels_images(image_dirs : str):
         for image in glob(f'{path}/**'):
             if not '.-' in image:
                 if 'normal' in image:
-                    cfg.mask_labels.append(2)
+                    mask_labels.append(2)
                 elif 'incorrect' in image:
-                    cfg.mask_labels.append(1)
+                    mask_labels.append(1)
                 else:
-                    cfg.mask_labels.append(0)
+                    mask_labels.append(0)
 
-                cfg.imgs.append(image)
+                imgs.append(image)
 
 
 def age_label_func(x):
@@ -24,15 +24,15 @@ def age_label_func(x):
 
 
 def labeling_gen_age():
-    for gender in cfg.df['gender']:
-        cfg.gender_labels.extend([gender] * 7)
+    for gender in df['gender']:
+        gender_labels.extend([gender] * 7)
         
-    for age in cfg.df['age']:
-        cfg.age_labels.extend([age] * 7)
+    for age in df['age']:
+        age_labels.extend([age] * 7)
         
 
 def get_dataFrame():
-    df = pd.read_csv(cfg.df_path)
+    df = pd.read_csv(df_path)
 
     df['gender'] = df['gender'].map({'female':1, 'male':0})
     df['age'] = df['age'].map(age_label_func)
@@ -41,15 +41,15 @@ def get_dataFrame():
 def get_info():
     image_dirs=[]
 
-    for path in cfg.df.path:
-        image_dirs.append(os.path.join(cfg.img_dir, path))
+    for path in df.path:
+        image_dirs.append(os.path.join(img_dir, path))
 
     get_labels_images(image_dirs)
     get_dataFrame()
     labeling_gen_age()
 
-    for idx in range(len(cfg.mask_labels)):
-        cfg.ans.append(cfg.mask_labels[idx]*6 + cfg.gender_labels[idx]*3 + cfg.age_labels[idx])
+    for idx in range(len(mask_labels)):
+        ans.append(mask_labels[idx]*6 + gender_labels[idx]*3 + age_labels[idx])
     
 
 class TrainDataset(Dataset):
