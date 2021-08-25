@@ -63,8 +63,8 @@ def train_batch(x, y, model, opt, loss_fn):
 def get_model():
     model = models.resnext50_32x4d(pretrained=True)
     
-    for param in model.parameters():
-        param.requires_grad = False
+    # for param in model.parameters():
+    #     param.requires_grad = False
             
     model.fc = nn.Sequential(
         nn.Linear(2048, CLASS_NUM)
