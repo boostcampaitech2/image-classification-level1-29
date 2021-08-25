@@ -13,13 +13,9 @@ device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 TRAIN_DIR = '/opt/ml/input/data/train'
 TEST_DIR = '/opt/ml/input/data/eval'
 
-TRAIN_EXPAND = 'train_expand_age.csv'
-# 'train_expand_mask.csv'
-# 'train_expand_sex.csv'
-SUBMISSION_FILE = 'submission_age.csv'
-# 'submission_mask.csv'
-# 'submission_sex.csv'
-CLASS_NUM = 3
+TRAIN_EXPAND = 'train_expand.csv'
+SUBMISSION_FILE = 'submission.csv'
+CLASS_NUM = 18
 
 class TrainDataset(Dataset):
     def __init__(self, img_paths, targets, transform):
@@ -78,8 +74,8 @@ model, loss_fn, optimizer = get_model()
 print(model)
 summary(model, (3,512,384))
 
-for epoch in range(2):
-    print(f" epoch {epoch + 1}/2")
+for epoch in range(10):
+    print(f" epoch {epoch + 1}/10")
 
     for ix, batch in enumerate(iter(train_loader)):
         x, y = batch
