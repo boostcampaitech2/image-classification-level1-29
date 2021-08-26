@@ -16,8 +16,8 @@ import torch.nn.functional as F
 from tqdm.auto import tqdm
 from sklearn.metrics import f1_score
 from torch.utils.data import Dataset, DataLoader
-from torchvision.transforms import Resize, ToTensor, Normalize, CenterCrop, RandomHorizontalFlip, RandomRotation
-from torchvision.models import resnext50_32x4d
+from torchvision.transforms import Resize, ToTensor, Normalize, RandomInvert, GaussianBlur, ColorJitter, CenterCrop, RandomHorizontalFlip, RandomRotation
+from torchvision.models import resnext50_32x4d, densenet161
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
@@ -32,7 +32,7 @@ TEST_DIR = "/opt/ml/input/data/eval/"
 
 IMG_HEIGHT = 512
 IMG_WIDTH = 384
-BATCH_SIZE = 128
+BATCH_SIZE = 32
 LR = 0.001
 EPOCH = 10
 
