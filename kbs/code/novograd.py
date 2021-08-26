@@ -1,70 +1,75 @@
+import itertools as it
 import torch
-from torch import optim
+from torch.optim import Optimizer
 import math
 
-class NovoGrad(optim.Optimizer):
-    def __init__(self, params, grad_averaging=False, lr=0.1, betas=(0.95, 0.98), eps=1e-8, weight_decay=0):
-        defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
-        super(NovoGrad, self).__init__(params, defaults)
-        self._lr = lr
-        self._beta1 = betas[0]
-        self._beta2 = betas[1]
-        self._eps = eps
-        self._wd = weight_decay
-        self._grad_averaging = grad_averaging
+class NovoGrad(Optimizer):
+    """Implements NovoGrad algorithm.
+    Arguments:
+        params (iterable): iterable of parameters to optimize or dicts defining
+            parameter groups
+        lr (float, optional): learning rate (default: 1e-2)
+        betas (Tuple[float, float], optional): coefficients used for computing
+            running averages of gradient and its square (default: (0.95, 0.98))
+        eps (float, optional): term added to the denominator to improve
+            numerical stability (default: 1e-8)
+        weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
+    Example:
+        >>> model = ResNet()
+        >>> optimizer = NovoGrad(model.parameters(), lr=1e-2, weight_decay=1e-5)
+    """
 
-        self._momentum_initialized = False
+    def __init__(self, params, lr=0.01, betas=(0.95, 0.98), eps=1e-8,
+                 weight_decay=0,grad_averaging=False):
+        if lr < 0.0:
+            raise ValueError("Invalid learning rate: {}".format(lr))
+        if not 0.0 <= betas[0] < 1.0:
+            raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
+        if not 0.0 <= betas[1] < 1.0:
+            raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
+        defaults = dict(lr=lr, betas=betas, eps=eps,weight_decay=weight_decay,grad_averaging = grad_averaging)
+        super().__init__(params, defaults)
 
     def step(self, closure=None):
         loss = None
         if closure is not None:
             loss = closure()
-
-        if not self._momentum_initialized:
-            for group in self.param_groups:
-                for p in group['params']:
-                    if p.grad is None:
-                        continue
-                    state = self.state[p]
-                    grad = p.grad.data
-                    if grad.is_sparse:
-                        raise RuntimeError('NovoGrad does not support sparse gradients')
-
-                    v = torch.norm(grad)**2
-                    m = grad/(torch.sqrt(v) + self._eps) + self._wd * p.data
-                    state['step'] = 0
-                    state['v'] = v
-                    state['m'] = m
-                    state['grad_ema'] = None
-            self._momentum_initialized = True
-
         for group in self.param_groups:
             for p in group['params']:
                 if p.grad is None:
                     continue
-                state = self.state[p]
-                state['step'] += 1
-
-                step, v, m = state['step'], state['v'], state['m']
-                grad_ema = state['grad_ema']
-
                 grad = p.grad.data
-                g2 = torch.norm(grad)**2
-                grad_ema = g2 if grad_ema is None else grad_ema * \
-                    self._beta2 + g2*(1. - self._beta2)
-                grad *= 1.0 / (torch.sqrt(grad_ema) + self._eps)
+                if grad.is_sparse:
+                    raise RuntimeError('NovoGrad does not support sparse gradients')
+                state = self.state[p]
+                g_2 = torch.sum(grad ** 2)
+                if len(state) == 0:
+                    state['step'] = 0
+                    state['moments'] = grad.div(g_2.sqrt() +group['eps']) + \
+                                       group['weight_decay'] * p.data
+                    state['grads_ema'] = g_2
+                moments = state['moments']
+                grads_ema = state['grads_ema']
+                beta1, beta2 = group['betas']
+                state['step'] += 1
+                grads_ema.mul_(beta2).add_(1 - beta2, g_2)
 
-                if self._grad_averaging:
-                    grad *= (1. - self._beta1)
+                denom = grads_ema.sqrt().add_(group['eps'])
+                grad.div_(denom)
+                # weight decay
+                if group['weight_decay'] != 0:
+                    decayed_weights = torch.mul(p.data, group['weight_decay'])
+                    grad.add_(decayed_weights)
 
-                g2 = torch.norm(grad)**2
-                v = self._beta2*v + (1. - self._beta2)*g2
-                m = self._beta1*m + (grad / (torch.sqrt(v) + self._eps) + self._wd*p.data)
-                bias_correction1 = 1 - self._beta1 ** step
-                bias_correction2 = 1 - self._beta2 ** step
+                # Momentum --> SAG
+                if group['grad_averaging']:
+                    grad.mul_(1.0 - beta1)
+
+                moments.mul_(beta1).add_(grad) # velocity
+
+                bias_correction1 = 1 - beta1 ** state['step']
+                bias_correction2 = 1 - beta2 ** state['step']
                 step_size = group['lr'] * math.sqrt(bias_correction2) / bias_correction1
+                p.data.add_(-step_size, moments)
 
-                state['v'], state['m']  = v, m
-                state['grad_ema'] = grad_ema
-                p.data.add_(-step_size, m)
         return loss
