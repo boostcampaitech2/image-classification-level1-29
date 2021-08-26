@@ -82,6 +82,7 @@ def get_model():
     return model.to(device), loss_fn, optimizer
 
 model, loss_fn, optimizer = get_model()
+schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
 print(model)
 summary(model, (3,512,384))
 
@@ -91,6 +92,7 @@ for epoch in range(10):
     for ix, batch in enumerate(iter(train_loader)):
         x, y = batch
         batch_loss = train_batch(x.cuda(), y.cuda().long(), model, optimizer, loss_fn)
+    schedular.step()
 
 
 submission = pd.read_csv(os.path.join(TEST_DIR, 'info.csv'))
