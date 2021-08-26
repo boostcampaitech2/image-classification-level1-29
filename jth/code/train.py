@@ -1,13 +1,15 @@
+import os
+from PIL import Image
+import argparse
+from sendMsgToSlack import *
+
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+import torch.utils.data as data
 from torchvision import transforms, models
 from torchsummary import summary
 import matplotlib.pyplot as plt
-import os
 import pandas as pd
-from PIL import Image
-import argparse
 
 parser = argparse.ArgumentParser(description='Mask Classification')
 parser.add_argument('--input-file', '-i', required=True, type=str, 
@@ -28,7 +30,8 @@ TRAIN_EXPAND = args.input_file
 SUBMISSION_FILE = args.output_file
 CLASS_NUM = args.class_num
 
-class TrainDataset(Dataset):
+
+class TrainDataset(data.Dataset):
     def __init__(self, img_paths, targets, transform):
         self.img_paths = img_paths
         self.transform = transform
@@ -55,27 +58,11 @@ transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.2, 0.2, 0.2)),
 ])
-dataset = TrainDataset(image_paths, targets, transform)
-train_loader = DataLoader(dataset, batch_size=50, shuffle=True, num_workers=2, drop_last=True)
-
-def train_batch(x, y, model, opt, loss_fn):
-    model.train()
-    prediction = model(x) 
-    batch_loss = loss_fn(prediction, y)
-    batch_loss.backward()
-    opt.step()
-    opt.zero_grad()
-    return batch_loss.item()
 
 def get_model():
     model = models.resnext50_32x4d(pretrained=True)
-    
-    # for param in model.parameters():
-    #     param.requires_grad = False
             
-    model.fc = nn.Sequential(
-        nn.Linear(2048, CLASS_NUM)
-    )
+    model.fc = nn.Linear(2048, CLASS_NUM)
     
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr= 1e-3)
@@ -86,13 +73,47 @@ schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
 print(model)
 summary(model, (3,512,384))
 
+def train(model, optimizer, loss_fn, train_loader):
+    running_loss = 0.0
+    for i, batch in enumerate(iter(train_loader)):
+        x, y = batch
+        model.train()
+        optimizer.zero_grad()
+        prediction = model(x.cuda())
+        loss = loss_fn(prediction, y.cuda().long())
+        loss.backward()
+        optimizer.step()
+        running_loss += loss.item()
+        if i % 2000 == 1999:
+            print(f'[{epoch + 1}, {i + 1}] loss: {running_loss / 2000}')
+            running_loss = 0.0
+
+def validate(model, loss_fn, val_loader):
+    with torch.no_grad():
+        val_loss = 0.0
+        print('Calculating validation results')
+        model.eval()
+        for i, batch in enumerate(iter(val_loader)):
+            inputs, labels = batch
+            outputs = model(inputs.cuda())
+            loss = loss_fn(outputs, labels.cuda().long())
+            val_loss += loss
+        return val_loss
+
+dataset = TrainDataset(image_paths, targets, transform)
+
+n_val = int(len(dataset) * 0.2)
+n_train = len(dataset) - n_val
+train_dataset, val_dataset = data.random_split(dataset, [n_train, n_val])
+
+train_loader = data.DataLoader(train_dataset, batch_size=50, shuffle=True, num_workers=2, drop_last=True)
+val_loader = data.DataLoader(val_dataset, batch_size=50, shuffle=False, num_workers=2, drop_last=True)
+
 for epoch in range(10):
     print(f" epoch {epoch + 1}/10")
-
-    for ix, batch in enumerate(iter(train_loader)):
-        x, y = batch
-        batch_loss = train_batch(x.cuda(), y.cuda().long(), model, optimizer, loss_fn)
-    schedular.step()
+    train(model, optimizer, loss_fn, train_loader)
+    val_loss = validate(model, loss_fn, val_loader)    
+    schedular.step(val_loss)
 
 
 submission = pd.read_csv(os.path.join(TEST_DIR, 'info.csv'))
@@ -105,7 +126,7 @@ transform = transforms.Compose([
     transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.2, 0.2, 0.2)),
 ])
 
-class TestDataset(Dataset):
+class TestDataset(data.Dataset):
     def __init__(self, img_paths, transform):
         self.img_paths = img_paths
         self.transform = transform
@@ -122,7 +143,7 @@ class TestDataset(Dataset):
 
 dataset = TestDataset(image_paths, transform)
 
-loader = DataLoader(
+loader = data.DataLoader(
     dataset,
     shuffle=False
 )
@@ -139,3 +160,4 @@ submission['ans'] = all_predictions
 
 submission.to_csv(os.path.join(TEST_DIR, SUBMISSION_FILE), index=False)
 print('test inference is done!')
+send_message_to_slack('hi')
