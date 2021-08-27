@@ -8,6 +8,8 @@ import torch.nn as nn
 import torch.utils.data as data
 from torchvision import transforms, models
 from torchsummary import summary
+from torchensemble import GradientBoostingClassifier
+from torchensemble.utils.logging import set_logger
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -43,7 +45,7 @@ class TrainDataset(data.Dataset):
 
         if self.transform:
             image = self.transform(image)
-        return image, target
+        return image, target.long()
 
     def __len__(self):
         return len(self.img_paths)
@@ -73,33 +75,50 @@ schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
 print(model)
 summary(model, (3,512,384))
 
-def train(model, optimizer, loss_fn, train_loader):
-    running_loss = 0.0
-    for i, batch in enumerate(iter(train_loader)):
-        x, y = batch
-        model.train()
-        optimizer.zero_grad()
-        prediction = model(x.cuda())
-        loss = loss_fn(prediction, y.cuda().long())
-        loss.backward()
-        optimizer.step()
-        running_loss += loss.item()
-        if i % 2000 == 1999:
-            print(f'[{epoch + 1}, {i + 1}] loss: {running_loss / 2000}')
-            running_loss = 0.0
+# def train(model, optimizer, loss_fn, train_loader):
+#     running_loss = 0.0
+#     for i, batch in enumerate(iter(train_loader)):
+#         x, y = batch
+#         model.train()
+#         optimizer.zero_grad()
+#         prediction = model(x.cuda())
+#         loss = loss_fn(prediction, y.cuda().long())
+#         loss.backward()
+#         optimizer.step()
+#         running_loss += loss.item()
+#         if i % 2000 == 1999:
+#             print(f'[{epoch + 1}, {i + 1}] loss: {running_loss / 2000}')
+#             running_loss = 0.0
 
-def validate(model, loss_fn, val_loader):
-    with torch.no_grad():
-        val_loss = 0.0
-        print('Calculating validation results')
-        model.eval()
-        for i, batch in enumerate(iter(val_loader)):
-            inputs, labels = batch
-            outputs = model(inputs.cuda())
-            loss = loss_fn(outputs, labels.cuda().long())
-            val_loss += loss
-        return val_loss
+# def validate(model, loss_fn, val_loader):
+#     model.eval()
+#     with torch.no_grad():
+#         val_loss = 0.0
+#         print('Calculating validation results')
+#         for i, batch in enumerate(iter(val_loader)):
+#             inputs, labels = batch
+#             outputs = model(inputs.cuda())
+#             loss = loss_fn(outputs, labels.cuda().long())
+#             val_loss += loss
+#         return val_loss
 
+# dataset = TrainDataset(train_image_paths, targets, transform)
+
+# n_val = int(len(dataset) * 0.2)
+# n_train = len(dataset) - n_val
+# train_dataset, val_dataset = data.random_split(dataset, [n_train, n_val])
+
+# train_loader = data.DataLoader(train_dataset, batch_size=50, shuffle=True, num_workers=2, drop_last=True)
+# val_loader = data.DataLoader(val_dataset, batch_size=50, shuffle=False, num_workers=2, drop_last=True)
+
+# for epoch in range(10):
+#     print(f" epoch {epoch + 1}/10")
+#     train(model, optimizer, loss_fn, train_loader)
+#     val_loss = validate(model, loss_fn, val_loader)    
+#     schedular.step(val_loss)
+
+
+#### ensenble test ####
 dataset = TrainDataset(image_paths, targets, transform)
 
 n_val = int(len(dataset) * 0.2)
@@ -109,11 +128,17 @@ train_dataset, val_dataset = data.random_split(dataset, [n_train, n_val])
 train_loader = data.DataLoader(train_dataset, batch_size=50, shuffle=True, num_workers=2, drop_last=True)
 val_loader = data.DataLoader(val_dataset, batch_size=50, shuffle=False, num_workers=2, drop_last=True)
 
-for epoch in range(10):
-    print(f" epoch {epoch + 1}/10")
-    train(model, optimizer, loss_fn, train_loader)
-    val_loss = validate(model, loss_fn, val_loader)    
-    schedular.step(val_loss)
+logger = set_logger('classification_mask_mlp')
+
+model = GradientBoostingClassifier(estimator=model, n_estimators=10, cuda=True)
+criterion = nn.CrossEntropyLoss()
+model.set_criterion(criterion)
+model.set_optimizer('Adam', lr=1e-3, weight_decay=5e-4)
+model.fit(
+    train_loader,
+    epochs=10
+)
+#########################
 
 
 submission = pd.read_csv(os.path.join(TEST_DIR, 'info.csv'))
@@ -153,11 +178,12 @@ model.eval()
 for images in loader:
     with torch.no_grad():
         images = images.to(device)
-        pred = model(images)
+        # pred = model(images)
+        pred = model.predict(images) # ensenble test
         pred = pred.argmax(dim=-1)
         all_predictions.extend(pred.cpu().numpy())
 submission['ans'] = all_predictions
 
 submission.to_csv(os.path.join(TEST_DIR, SUBMISSION_FILE), index=False)
 print('test inference is done!')
-send_message_to_slack('hi')
+send_message_to_slack(SUBMISSION_FILE)
