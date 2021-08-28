@@ -255,7 +255,9 @@ UpgradeLog*.htm
 ServiceFabricBackup/
 *.rptproj.bak
 *.pth 
-
+*.json
+*.yaml
+*.wandb
 # SQL Server files
 *.mdf
 *.ldf
@@ -353,3 +355,6 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+# model dump
+*.pth
