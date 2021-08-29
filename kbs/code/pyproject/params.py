@@ -14,6 +14,7 @@ class Parameters():
         self.wandb_dir = './model'
         self.mean = ( 0.5601,0.5241,0.5014)
         self.std = (0.2332,0.2430,0.2456)
+        self.img_size = (512,384)
         self.batch_size = batch_size
         self.initial_lr = 0.001
         self.num_epoch =30
