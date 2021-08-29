@@ -8,6 +8,8 @@ import torch.nn as nn
 import torch.utils.data as data
 from torchvision import transforms, models
 from torchsummary import summary
+from torchensemble import VotingClassifier
+from torchensemble.utils.logging import set_logger
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -38,23 +40,23 @@ class TrainDataset(data.Dataset):
         self.targets = targets
 
     def __getitem__(self, index):
-        image = Image.open(self.img_paths[index])
+        image = Image.open(self.img_paths[index]).convert('RGB')
         target = torch.tensor(self.targets[index], dtype=torch.float32)
 
         if self.transform:
             image = self.transform(image)
-        return image, target
+        return image, target.long()
 
     def __len__(self):
         return len(self.img_paths)
 
 submission = pd.read_csv(os.path.join(TRAIN_DIR, TRAIN_EXPAND))
-image_dir = os.path.join(TRAIN_DIR, 'images')
+image_dir = os.path.join(TRAIN_DIR, 'new_imgs')
 
 image_paths = [os.path.join(image_dir, f'{path}/{file}') for path, file in zip(submission.path, submission.file)]
 targets = [target for target in submission.target]
 transform = transforms.Compose([
-    transforms.Resize((512, 384), Image.BILINEAR),
+    transforms.Resize((223, 223), Image.BILINEAR),
     transforms.ToTensor(),
     transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.2, 0.2, 0.2)),
 ])
@@ -71,57 +73,73 @@ def get_model():
 model, loss_fn, optimizer = get_model()
 schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
 print(model)
-summary(model, (3,512,384))
+summary(model, (3,224,224))
 
-def train(model, optimizer, loss_fn, train_loader):
-    running_loss = 0.0
-    for i, batch in enumerate(iter(train_loader)):
-        x, y = batch
-        model.train()
-        optimizer.zero_grad()
-        prediction = model(x.cuda())
-        loss = loss_fn(prediction, y.cuda().long())
-        loss.backward()
-        optimizer.step()
-        running_loss += loss.item()
-        if i % 2000 == 1999:
-            print(f'[{epoch + 1}, {i + 1}] loss: {running_loss / 2000}')
-            running_loss = 0.0
+# def train(model, optimizer, loss_fn, train_loader):
+#     running_loss = 0.0
+#     for i, batch in enumerate(iter(train_loader)):
+#         x, y = batch
+#         model.train()
+#         optimizer.zero_grad()
+#         prediction = model(x.cuda())
+#         loss = loss_fn(prediction, y.cuda().long())
+#         loss.backward()
+#         optimizer.step()
+#         running_loss += loss.item()
+#         if i % 100 == 99:
+#             print(f'[{epoch + 1}, {i + 1}] loss: {running_loss / 100}')
+#             running_loss = 0.0
 
-def validate(model, loss_fn, val_loader):
-    with torch.no_grad():
-        val_loss = 0.0
-        print('Calculating validation results')
-        model.eval()
-        for i, batch in enumerate(iter(val_loader)):
-            inputs, labels = batch
-            outputs = model(inputs.cuda())
-            loss = loss_fn(outputs, labels.cuda().long())
-            val_loss += loss
-        return val_loss
+# # def validate(model, loss_fn, val_loader):
+# #     model.eval()
+# #     with torch.no_grad():
+# #         val_loss = 0.0
+# #         print('Calculating validation results')
+# #         for i, batch in enumerate(iter(val_loader)):
+# #             inputs, labels = batch
+# #             outputs = model(inputs.cuda())
+# #             loss = loss_fn(outputs, labels.cuda().long())
+# #             val_loss += loss
+# #         return val_loss
 
+# dataset = TrainDataset(image_paths, targets, transform)
+
+# # n_val = int(len(dataset) * 0.2)
+# # n_train = len(dataset) - n_val
+# # train_dataset, val_dataset = data.random_split(dataset, [n_train, n_val])
+
+# train_loader = data.DataLoader(dataset, batch_size=50, shuffle=True, num_workers=1, drop_last=True)
+# # val_loader = data.DataLoader(val_dataset, batch_size=50, shuffle=False, num_workers=2, drop_last=True)
+
+# for epoch in range(10):
+#     print(f" epoch {epoch + 1}/10")
+#     train(model, optimizer, loss_fn, train_loader)
+#     # val_loss = validate(model, loss_fn, val_loader)    
+#     # schedular.step(val_loss)
+
+
+#### ensenble test ####
 dataset = TrainDataset(image_paths, targets, transform)
 
-n_val = int(len(dataset) * 0.2)
-n_train = len(dataset) - n_val
-train_dataset, val_dataset = data.random_split(dataset, [n_train, n_val])
+train_loader = data.DataLoader(dataset, batch_size=50, shuffle=True, num_workers=2, drop_last=True)
 
-train_loader = data.DataLoader(train_dataset, batch_size=50, shuffle=True, num_workers=2, drop_last=True)
-val_loader = data.DataLoader(val_dataset, batch_size=50, shuffle=False, num_workers=2, drop_last=True)
+logger = set_logger('classification_mask_mlp')
 
-for epoch in range(10):
-    print(f" epoch {epoch + 1}/10")
-    train(model, optimizer, loss_fn, train_loader)
-    val_loss = validate(model, loss_fn, val_loader)    
-    schedular.step(val_loss)
+model = VotingClassifier(estimator=model, n_estimators=10, cuda=True)
+model.set_optimizer('Adam', lr=1e-3, weight_decay=5e-4)
+model.fit(
+    train_loader,
+    epochs=10
+)
+#########################
 
 
 submission = pd.read_csv(os.path.join(TEST_DIR, 'info.csv'))
-image_dir = os.path.join(TEST_DIR, 'images')
+image_dir = os.path.join(TEST_DIR, 'new_imgs')
 
 image_paths = [os.path.join(image_dir, img_id) for img_id in submission.ImageID]
 transform = transforms.Compose([
-    transforms.Resize((512, 384), Image.BILINEAR),
+    transforms.Resize((224, 224), Image.BILINEAR),
     transforms.ToTensor(),
     transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.2, 0.2, 0.2)),
 ])
@@ -132,7 +150,7 @@ class TestDataset(data.Dataset):
         self.transform = transform
 
     def __getitem__(self, index):
-        image = Image.open(self.img_paths[index])
+        image = Image.open(self.img_paths[index]).convert('RGB')
 
         if self.transform:
             image = self.transform(image)
@@ -153,11 +171,12 @@ model.eval()
 for images in loader:
     with torch.no_grad():
         images = images.to(device)
-        pred = model(images)
+        # pred = model(images)
+        pred = model.predict(images) # ensenble test
         pred = pred.argmax(dim=-1)
         all_predictions.extend(pred.cpu().numpy())
 submission['ans'] = all_predictions
 
 submission.to_csv(os.path.join(TEST_DIR, SUBMISSION_FILE), index=False)
 print('test inference is done!')
-send_message_to_slack('hi')
+send_message_to_slack(SUBMISSION_FILE)
