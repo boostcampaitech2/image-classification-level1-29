@@ -2,8 +2,8 @@ import albumentations as A
 from albumentations import *
 from albumentations.pytorch import ToTensorV2
 from torchvision.transforms import transforms
-import params
-hp = params.Parameters()
+import Params
+hp = Params.Parameters()
 
 class TransForm():
     
@@ -27,8 +27,8 @@ class TransForm():
             RandomBrightnessContrast(brightness_limit=(-0.1, 0.1), contrast_limit=(-0.1, 0.1), p=0.5),
             GaussNoise(p=0.5),
             Normalize(mean=mean, std=std, max_pixel_value=255.0, p=1.0),
-            ToTensorV2(p=1.0),
-        ], p=1.0)
+            ToTensorV2(p=1.0),], p=1.0)
+
         elif mode == 1:
             transformations['val'] = Compose([
             Resize(img_size[0], img_size[1]),

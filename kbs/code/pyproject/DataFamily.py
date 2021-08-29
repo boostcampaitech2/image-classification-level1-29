@@ -1,5 +1,5 @@
 ### 마스크 여부, 성별, 나이를 mapping할 클래스를 생성합니다.
-import params
+import Params
 from PIL import Image
 import os
 import numpy as np
@@ -12,14 +12,14 @@ import Transformations
 trans=Transformations.TransForm
 print = p.pprint
 
-hp = params.Parameters()
+hp = Params.Parameters()
 
 class DataFrame():
     
     def __init__(self):
         self.train_dir = hp.data_dir
         self.image_dir = hp.img_dir
-        
+        self.dataframe = self.create_df()
         
 
     def create_df(self):
@@ -34,7 +34,7 @@ class DataFrame():
         mask_df = pd.DataFrame() #데이터프레임 구조 형성
         labeled_df = pd.DataFrame()
         if os.path.exists(os.path.join(hp.data_dir,'labeled_df.csv')):
-            print("dataframe exists, moving on....")
+            print("Dataframe exists, moving on....")
             labeled_df = pd.read_csv(os.path.join(hp.data_dir,'labeled_df.csv'))
             return labeled_df
 
@@ -129,24 +129,27 @@ class DataCluster():
         self.transform = transform
 
         if self.mode == 0 :
-            self.create_dev_set(path,labeled_df,transform)
+            self.set = self.create_train_set(path,labeled_df,transform)
 
         elif self.mode == 1:
-            self.create_valid_set(path,labeled_df,transform)
+            self.set = self.create_valid_set(path,labeled_df,transform)
 
         elif self.mode == 2:
-            self.create_test_set(path)
+            self.set = self.create_test_set(path)
         
             
-    def create_dev_set(self,path,labeled_df,transform):
+    def create_train_set(self,path,labeled_df,transform):
+        print("loading train datasets....")
         trainset = Devset(path,labeled_df,trans(0))
         return trainset
 
     def create_valid_set(self,path,labeled_df,transform):
+        print("loading valid datasets....")
         validset = Devset(path,labeled_df,trans(1))
         return validset
 
     def create_test_set(self,path):
+        print("finally, test set...!")
         testset = TestSet(path,trans(2))
         return testset
     
