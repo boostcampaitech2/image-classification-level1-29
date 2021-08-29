@@ -8,8 +8,10 @@ from torch.utils.data import Dataset,DataLoader
 import pandas as pd
 import tqdm
 import pprint as p
-import Transformations
-trans=Transformations.TransForm
+from Transformations import TransForm
+import albumentations as A
+trans=TransForm.transform
+
 print = p.pprint
 
 hp = Params.Parameters()
@@ -130,27 +132,34 @@ class DataCluster():
 
         if self.mode == 0 :
             self.set = self.create_train_set(path,labeled_df,transform)
+            
 
         elif self.mode == 1:
             self.set = self.create_valid_set(path,labeled_df,transform)
 
         elif self.mode == 2:
-            self.set = self.create_test_set(path)
+            self.set = self.create_test_set(path,transform)
         
             
     def create_train_set(self,path,labeled_df,transform):
         print("loading train datasets....")
-        trainset = Devset(path,labeled_df,trans(0))
+        transform = trans(0)['train']
+        trainset = Devset(path,labeled_df,transform)
+        
         return trainset
 
     def create_valid_set(self,path,labeled_df,transform):
         print("loading valid datasets....")
-        validset = Devset(path,labeled_df,trans(1))
+        transform = trans(1)['val']
+        validset = Devset(path,labeled_df,transform)
+        
         return validset
 
-    def create_test_set(self,path):
+    def create_test_set(self,path,transform):
         print("finally, test set...!")
-        testset = TestSet(path,trans(2))
+        transform = trans(2)['test']
+        testset = TestSet(path,transform)
+
         return testset
     
     
@@ -177,7 +186,7 @@ class Devset(Dataset):
                 image = Image.open(os.path.join(full_path, file_name+'.jpeg'))
         
         if self.transform:
-            image = self.transform(image)
+            image = self.transform(image=np.array(image))['image']
 
 
 
@@ -203,7 +212,7 @@ class TestSet(Dataset):
         
         image = Image.open(self.img_paths[index])
         if self.transform:
-            image = self.transform(image)
+            image = self.transform(image=np.array(image))['image']
         return image
     
     def __len__(self):

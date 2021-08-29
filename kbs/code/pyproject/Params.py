@@ -5,7 +5,7 @@ from pprint import pprint
 class Parameters():
     '''data_dir, img_dir, df_path, df, project_name, wandb_dir, and so on....'''
     
-    def __init__(self,num_epoch=1,batch_size=64):
+    def __init__(self,num_epoch=1,batch_size=32):
         self.data_dir = '/opt/ml/input/data/train'
         self.img_dir = f'{self.data_dir}/images'
 
@@ -13,7 +13,7 @@ class Parameters():
         self.df = pd.read_csv(self.df_path)
 
         self.project_name = 'wandb_bc'
-        self.wandb_dir = './model'
+        self.wandb_dir = '/opt/ml/teamrepo/kbs/code/pyproject/model/wandb'
 
         self.mean = ( 0.5601,0.5241,0.5014)
         self.std = (0.2332,0.2430,0.2456)
@@ -22,14 +22,11 @@ class Parameters():
         self.batch_size = batch_size
 
         self.initial_lr = 0.001
-        self.num_epoch =30
+        self.num_epoch = num_epoch
         self.betas = (0.9, 0.999)
         self.weight_decay = 1e-4
-
-        self.num_epoch = num_epoch
-
+        self.tolerance = 3
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
         self.model_name = "res2next50"
 
     pprint('Loading Parameters...')
