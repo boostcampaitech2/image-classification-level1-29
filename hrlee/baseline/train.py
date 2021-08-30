@@ -93,6 +93,10 @@ def train(data_dir, model_dir, args):
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
+    # early stopping
+    EARLY_STOPPING_EPOCH = 5
+    valid_early_stop = 0
+
     # -- dataset
     dataset_module = getattr(import_module("dataset"), args.dataset)  # default: BaseAugmentation
     dataset = dataset_module(
@@ -224,9 +228,16 @@ def train(data_dir, model_dir, args):
             val_acc = np.sum(val_acc_items) / len(val_set)
             best_val_loss = min(best_val_loss, val_loss)
             if val_acc > best_val_acc:
+                valid_early_stop = 0
                 print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..")
                 torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
                 best_val_acc = val_acc
+            else:
+                # early stopping    
+                valid_early_stop += 1
+                if valid_early_stop >= EARLY_STOPPING_EPOCH:  # patience
+                    print("EARLY STOPPING!!")
+                    break
             torch.save(model.module.state_dict(), f"{save_dir}/last.pth")
             print(
                 f"[Val] acc : {val_acc:4.2%}, loss: {val_loss:4.2} || "
