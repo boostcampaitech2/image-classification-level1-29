@@ -204,7 +204,7 @@ class Devset(Dataset):
 class TestSet(Dataset):
     def __init__(self,img_paths,transform):
         super(TestSet).__init__()
-        self.img_paths = img_paths
+        self.img_paths = hp.test_img_path
         self.transform = transform
         
 
