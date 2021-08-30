@@ -92,8 +92,8 @@ def train(data_dir, model_dir, args):
     # -- settings
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
-    config = wandb.config
-    config = {'epochs':args.epochs,'batch_size':args.batch_size,'learning_rate':args.lr}
+    
+    
 
     # -- dataset
     dataset_module = getattr(import_module("dataset"), args.dataset)  # default: BaseAugmentation
@@ -156,6 +156,7 @@ def train(data_dir, model_dir, args):
 
     best_val_acc = 0
     best_val_loss = np.inf
+
     for epoch in range(args.epochs):
         # train loop
         model.train()
@@ -190,6 +191,8 @@ def train(data_dir, model_dir, args):
 
                 loss_value = 0
                 matches = 0
+        
+        
 
         scheduler.step()
 
@@ -236,10 +239,12 @@ def train(data_dir, model_dir, args):
             logger.add_scalar("Val/accuracy", val_acc, epoch)
             logger.add_figure("results", figure, epoch)
             print()
+        wandb.log({'train loss': train_loss, 'train acc' : train_acc,'val loss' : val_loss, 'val acc' :val_acc })
 
 
 if __name__ == '__main__':
-    wandb.init(project='-', entity='team29')
+    
+    
 
     parser = argparse.ArgumentParser()
 
@@ -273,5 +278,6 @@ if __name__ == '__main__':
 
     data_dir = args.data_dir
     model_dir = args.model_dir
-
+    config = {'epochs':args.epochs,'batch_size':args.batch_size,'learning_rate':args.lr}
+    wandb.init(project='-', entity='team29',config=config)
     train(data_dir, model_dir, args)
