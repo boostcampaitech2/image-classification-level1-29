@@ -109,7 +109,10 @@ class AgeLabels(int, Enum):
 
 
 class MaskBaseDataset(Dataset):
-    num_classes = 3 * 2 * 3
+    mask_classes = 3
+    age_classes = 3
+    gender_classes = 2
+    num_classes = mask_classes * age_classes * gender_classes
 
     _file_names = {
         "mask1": MaskLabels.MASK,
