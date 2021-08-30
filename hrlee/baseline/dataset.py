@@ -10,6 +10,8 @@ from PIL import Image
 from torch.utils.data import Dataset, Subset, random_split
 from torchvision import transforms
 from torchvision.transforms import *
+from facenet_pytorch import MTCNN
+
 
 IMG_EXTENSIONS = [
     ".jpg", ".JPG", ".jpeg", ".JPEG", ".png",
@@ -305,6 +307,30 @@ class TestDataset(Dataset):
 
     def __getitem__(self, index):
         image = Image.open(self.img_paths[index])
+        
+        # mtcnn 적용
+        #use_cuda = torch.cuda.is_available()
+        #device = torch.device("cuda" if use_cuda else "cpu")
+        mtcnn = MTCNN(keep_all=True)
+        boxes, probs = mtcnn.detect(image)
+        
+        if not isinstance(boxes, np.ndarray):
+            # 직접 crop
+            image = image.crop([50, 100, 350, 400])
+        
+        # boexes size 확인
+        else:
+            xmin = int(boxes[0, 0])-30
+            ymin = int(boxes[0, 1])-30
+            xmax = int(boxes[0, 2])+30
+            ymax = int(boxes[0, 3])+30
+            
+            if xmin < 0: xmin = 0
+            if ymin < 0: ymin = 0
+            if xmax > 384: xmax = 384
+            if ymax > 512: ymax = 512
+            
+            image = image.crop([xmin, ymin, xmax, ymax])
 
         if self.transform:
             image = self.transform(image)
