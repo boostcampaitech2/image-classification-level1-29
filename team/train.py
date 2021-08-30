@@ -119,7 +119,7 @@ def train(data_dir, model_dir, args):
     train_loader = DataLoader(
         train_set,
         batch_size=args.batch_size,
-        num_workers=4,
+        num_workers=2,
         shuffle=True,
         pin_memory=False,
         drop_last=True,
@@ -128,7 +128,7 @@ def train(data_dir, model_dir, args):
     val_loader = DataLoader(
         val_set,
         batch_size=args.valid_batch_size,
-        num_workers=4,
+        num_workers=2,
         shuffle=False,
         pin_memory=False,
         drop_last=True,
@@ -215,7 +215,7 @@ def train(data_dir, model_dir, args):
             #figure = None
             total_pred=torch.tensor([]).to(device)
             total_label=torch.tensor([]).to(device)
-            with tqdm(train_loader) as pbar:
+            with tqdm(val_loader) as pbar:
                 for idx,val_batch in enumerate(pbar):
                     inputs, labels = val_batch
                     inputs = inputs.to(device)
@@ -237,10 +237,11 @@ def train(data_dir, model_dir, args):
                         figure = grid_image(
                             inputs_np, labels, preds, n=16, shuffle=args.dataset != "MaskSplitByProfileDataset"
                         )'''
-                    pbar.set_postfix({'epoch' : epoch, 'loss' :loss_item/(idx+1), 'accuracy' : acc_item/args.batch_size/(idx+1),'F1 score':f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')})
+                    pbar.set_postfix({'epoch' : epoch, 'loss' :np.sum(val_loss_items)/len(val_loss_items), 'accuracy' : np.sum(val_acc_items)/len(val_acc_items),'F1 score':f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')})
 
             val_loss = np.sum(val_loss_items) / len(val_loader)
             val_acc = np.sum(val_acc_items) / len(val_set)
+            print(val_acc)
             best_val_loss = min(best_val_loss, val_loss)
             if val_acc > best_val_acc:
                 print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..")
@@ -287,7 +288,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='exp', help='model save at {SM_MODEL_DIR}/{name}')
 
     # Container environment
-    parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/images'))
+    parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', 'opt/ml/input/data/train/images'))
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR', './model'))
 
     args = parser.parse_args()
