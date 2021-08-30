@@ -215,7 +215,7 @@ def train(data_dir, model_dir, args):
             #figure = None
             total_pred=torch.tensor([]).to(device)
             total_label=torch.tensor([]).to(device)
-            with tqdm(train_loader) as pbar:
+            with tqdm(val_loader) as pbar:
                 for idx,val_batch in enumerate(pbar):
                     inputs, labels = val_batch
                     inputs = inputs.to(device)
