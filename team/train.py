@@ -237,7 +237,7 @@ def train(data_dir, model_dir, args):
                         figure = grid_image(
                             inputs_np, labels, preds, n=16, shuffle=args.dataset != "MaskSplitByProfileDataset"
                         )'''
-                    pbar.set_postfix({'epoch' : epoch, 'loss' :np.sum(val_loss_items)/len(val_loss_items), 'accuracy' : np.sum(acc_item)/len(acc_item),'F1 score':f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')})
+                    pbar.set_postfix({'epoch' : epoch, 'loss' :np.sum(val_loss_items)/len(val_loss_items), 'accuracy' : np.sum(val_acc_items)/len(val_acc_items),'F1 score':f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')})
 
             val_loss = np.sum(val_loss_items) / len(val_loader)
             val_acc = np.sum(val_acc_items) / len(val_set)
