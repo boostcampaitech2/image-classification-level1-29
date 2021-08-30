@@ -193,9 +193,7 @@ def train(data_dir, model_dir, args):
                 logger.add_scalar("Train/loss", train_loss, epoch * len(train_loader) + idx)
                 logger.add_scalar("Train/accuracy", train_acc, epoch * len(train_loader) + idx)
                 logger.add_scalar("Train/f1_macro", train_f1_macro, epoch * len(train_loader) + idx)
-                wandb.log({"train_loss": train_loss})
-                wandb.log({"train_accuracy": train_acc})
-                wandb.log({"train_f1_macro": train_f1_macro})
+                wandb.log({"train_loss": train_loss, "train_accuracy": train_acc, "train_f1_macro": train_f1_macro})
 
                 loss_value = 0
                 matches = 0
@@ -259,15 +257,11 @@ def train(data_dir, model_dir, args):
             logger.add_scalar("Val/accuracy", val_acc, epoch)
             logger.add_scalar("Val/f1_macro", val_f1_macro, epoch)
             logger.add_figure("results", figure, epoch)
-            wandb.log({"valid_loss": val_loss})
-            wandb.log({"valid_accuracy": val_acc})
-            wandb.log({"valid_f1_macro": val_f1_macro})
+            wandb.log({"valid_loss": val_loss, "valid_accuracy": val_acc, "valid_f1_macro": val_f1_macro})
             print()
 
 
 if __name__ == '__main__':
-    wandb.init(project='mask-status-classification', entity='hrlee')
-
     parser = argparse.ArgumentParser()
 
     #from dotenv import load_dotenv
@@ -277,12 +271,12 @@ if __name__ == '__main__':
     # Data and model checkpoints directories
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
     parser.add_argument('--epochs', type=int, default=30, help='number of epochs to train (default: 30)')
-    parser.add_argument('--dataset', type=str, default='MaskBaseDataset', help='dataset augmentation type (default: MaskBaseDataset)')
+    parser.add_argument('--dataset', type=str, default='MaskSplitByProfileDataset', help='dataset augmentation type (default: MaskSplitByProfileDataset)')
     parser.add_argument('--augmentation', type=str, default='BaseAugmentation', help='data augmentation type (default: BaseAugmentation)')
     parser.add_argument("--resize", nargs="+", type=list, default=[224, 224], help='resize size for image when training')
     parser.add_argument('--batch_size', type=int, default=64, help='input batch size for training (default: 64)')
     parser.add_argument('--valid_batch_size', type=int, default=64, help='input batch size for validing (default: 64)')
-    parser.add_argument('--model', type=str, default='BaseModel', help='model type (default: BaseModel)')
+    parser.add_argument('--model', type=str, default='EfficientNet_b3', help='model type (default: EfficientNet_b3)')
     parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer type (default: Adam)')
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate (default: 1e-3)')
     parser.add_argument('--val_ratio', type=float, default=0.2, help='ratio for validaton (default: 0.2)')
@@ -292,7 +286,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='exp', help='model save at {SM_MODEL_DIR}/{name}')
 
     # Container environment
-    parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/images'))
+    parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/face_images'))
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR', './model'))
 
     args = parser.parse_args()
@@ -303,5 +297,15 @@ if __name__ == '__main__':
 
     data_dir = args.data_dir
     model_dir = args.model_dir
+
+    # wandb setting
+    config = {
+        'seed':args.seed, 'epochs':args.epochs, 'dataset':args.dataset, 'augmentation':args.augmentation,
+        'resize':args.resize, 'batch_size':args.batch_size, 'validd_batch_size':args.valid_batch_size,
+        'model':args.model, 'optimizer':args.optimizer, 'lr':args.lr, 'val_ratio':args.val_ratio,
+        'criterion':args.criterion, 'lr_decay_step':args.lr_decay_step, 'log_interval':args.log_interval, 
+        'exp_name':args.name, 'data_dir':args.data_dir, 'model_dir':args.model_dir
+    }
+    wandb.init(project='mask-status-classification', entity='hrlee', config=config)
 
     train(data_dir, model_dir, args)
