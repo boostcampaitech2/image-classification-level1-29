@@ -9,7 +9,6 @@ from importlib import import_module
 from pathlib import Path
 import wandb
 from tqdm.auto import tqdm
-
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -17,10 +16,10 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import f1_score
-
 from dataset import MaskBaseDataset
 from loss import create_criterion
-
+import warnings
+warnings.filterwarnings(action='ignore')
 
 
 def seed_everything(seed):
@@ -120,18 +119,18 @@ def train(data_dir, model_dir, args):
     train_loader = DataLoader(
         train_set,
         batch_size=args.batch_size,
-        num_workers=multiprocessing.cpu_count()//2,
+        num_workers=4,
         shuffle=True,
-        pin_memory=use_cuda,
+        pin_memory=False,
         drop_last=True,
     )
 
     val_loader = DataLoader(
         val_set,
         batch_size=args.valid_batch_size,
-        num_workers=multiprocessing.cpu_count()//2,
+        num_workers=4,
         shuffle=False,
-        pin_memory=use_cuda,
+        pin_memory=False,
         drop_last=True,
     )
 
@@ -184,8 +183,8 @@ def train(data_dir, model_dir, args):
 
                 loss_value += loss.item()
                 matches += (preds == labels).sum().item()
-                total_pred=torch.hstack(total_pred,preds)
-                total_label=torch.hstack(total_label,labels)
+                total_pred=torch.hstack((total_pred,preds))
+                total_label=torch.hstack((total_label,labels))
                 '''if (idx + 1) % args.log_interval == 0:
                     train_loss = loss_value / args.log_interval
                     train_acc = matches / args.batch_size / args.log_interval
@@ -229,8 +228,8 @@ def train(data_dir, model_dir, args):
                     acc_item = (labels == preds).sum().item()
                     val_loss_items.append(loss_item)
                     val_acc_items.append(acc_item)
-                    total_pred=torch.hstack(total_pred,preds)
-                    total_label=torch.hstack(total_label,labels)
+                    total_pred=torch.hstack((total_pred,preds))
+                    total_label=torch.hstack((total_label,labels))
 
                     '''if figure is None:
                         inputs_np = torch.clone(inputs).detach().cpu().permute(0, 2, 3, 1).numpy()
