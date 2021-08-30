@@ -69,3 +69,28 @@ class Res2Next50(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+
+
+class ResNext50(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.model = timm.create_model('resnext50_32x4d', pretrained=True, num_classes=num_classes)
+
+    def forward(self, x):
+        return self.model(x)
+
+class DenseNet121(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.model = timm.create_model('densenet121', pretrained=True, num_classes=num_classes)
+
+    def forward(self, x):
+        return self.model(x)
+
+class InceptionResnetv2(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.model = timm.create_model('inception_resnet_v2', pretrained=True, num_classes=num_classes)
+
+    def forward(self, x):
+        return self.model(x)
