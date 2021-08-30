@@ -237,7 +237,7 @@ def train(data_dir, model_dir, args):
                         figure = grid_image(
                             inputs_np, labels, preds, n=16, shuffle=args.dataset != "MaskSplitByProfileDataset"
                         )'''
-                    pbar.set_postfix({'epoch' : epoch, 'loss' :loss_item/(idx+1), 'accuracy' : acc_item/args.batch_size/(idx+1),'F1 score':f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')})
+                    pbar.set_postfix({'epoch' : epoch, 'loss' :np.sum(val_loss_item)/len(val_loss_item), 'accuracy' : np.sum(acc_item)/len(acc_item),'F1 score':f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')})
 
             val_loss = np.sum(val_loss_items) / len(val_loader)
             val_acc = np.sum(val_acc_items) / len(val_set)
@@ -287,7 +287,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='exp', help='model save at {SM_MODEL_DIR}/{name}')
 
     # Container environment
-    parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/images'))
+    parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', 'opt/ml/input/data/train/images'))
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR', './model'))
 
     args = parser.parse_args()
