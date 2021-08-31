@@ -11,10 +11,7 @@ from mergeSubmissions import merge
 
 InferSplitNum = {
     'all': ['all'],
-    'one_by_one': ['mask', 'gender', 'age'],
-    'mask_gender': ['mask', 'gender'],
-    'mask_age': ['mask', 'age'],
-    'age_gender': ['age', 'gender']
+    'one_by_one': ['mask', 'gender', 'age']
 }
 
 def load_model(saved_model, num_classes, device, infer_split):
@@ -30,6 +27,7 @@ def load_model(saved_model, num_classes, device, infer_split):
     if infer_split == 'all':
         model_path = os.path.join(saved_model, 'best.pth')
     else:
+        print(infer_split)
         model_path = os.path.join(saved_model, f'best_{infer_split}.pth')
     model.load_state_dict(torch.load(model_path, map_location=device))
 
@@ -85,13 +83,13 @@ if __name__ == '__main__':
 
     # Data and model checkpoints directories
     parser.add_argument('--batch_size', type=int, default=42, help='input batch size for validing (default: 1000)')
-    parser.add_argument('--resize', type=tuple, default=(96, 128), help='resize size for image when you trained (default: (96, 128))')
+    parser.add_argument('--resize', type=tuple, default=(224, 224), help='resize size for image when you trained (default: (96, 128))')
     parser.add_argument('--model', type=str, default='BaseModel', help='model type (default: BaseModel)')
     parser.add_argument('--infer_split', type=str, default='all', help='choose between [all, one_by_one]')
 
     # Container environment
     parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_EVAL', '/opt/ml/input/data/eval'))
-    parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_CHANNEL_MODEL', './model/one_by_one'))
+    parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_CHANNEL_MODEL', './model/exp'))
     parser.add_argument('--output_dir', type=str, default=os.environ.get('SM_OUTPUT_DATA_DIR', './output'))
 
     args = parser.parse_args()

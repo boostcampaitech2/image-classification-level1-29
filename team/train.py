@@ -129,7 +129,7 @@ def train(data_dir, model_dir, args):
         train_loader = DataLoader(
             train_set,
             batch_size=args.batch_size,
-            num_workers=2,
+            num_workers=0,
             shuffle=True,
             pin_memory=False,
             drop_last=True,
@@ -138,7 +138,7 @@ def train(data_dir, model_dir, args):
         val_loader = DataLoader(
             val_set,
             batch_size=args.valid_batch_size,
-            num_workers=2,
+            num_workers=0,
             shuffle=False,
             pin_memory=False,
             drop_last=True,
