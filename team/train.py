@@ -100,9 +100,31 @@ def conf_mat(y_true,y_pred):
     sns.heatmap(cm,annot=True)
     return fig
 
+def addModels(args):
+    if args.models is None:
+        args.models = f'{args.model},{args.model},{args.model}'
+
+def isModelsValid(models):
+    models = models.split(',')
+
+    if len(models) < 3:
+        print('[ERROR] Require 3 model names with delimiter "," (ex: ResNext50,DenseNet121,EfficientNet_b3)')
+        return False
+
+    for model in models:
+        try:
+            model_module = getattr(import_module("model"), model)
+            model_module(num_classes=0)
+        except AttributeError:
+            print(f'[ERROR] Cannot find model {model}')
+            return False
+    return True
+
 def train(data_dir, model_dir, args):
-    for train_split in TrainSplitNum[args.train_split]:
-        print(f'Train splited for {TrainSplitNum[args.train_split]}..training -> {train_split}')
+    if not isModelsValid(args.models):
+        return
+    for train_split, model in zip(TrainSplitNum[args.train_split], args.models.split(',')):
+        print(f'Train splited into {TrainSplitNum[args.train_split]}..training -> {train_split} by {model}')
         seed_everything(args.seed)
 
         if train_split == 'all':
@@ -154,8 +176,11 @@ def train(data_dir, model_dir, args):
             drop_last=True,
         )
 
-        # -- model
-        model_module = getattr(import_module("model"), args.model)  # default: BaseModel
+        # -- mode
+        if train_split == 'all':
+            model_module = getattr(import_module("model"), args.model)  # default: BaseModel
+        else:
+            model_module = getattr(import_module("model"), model)
         model = model_module(
             num_classes=num_classes
         ).to(device)
@@ -304,6 +329,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=32, help='input batch size for training (default: 64)')
     parser.add_argument('--valid_batch_size', type=int, default=32, help='input batch size for validing (default: 1000)')
     parser.add_argument('--model', type=str, default='BaseModel', help='model type (default: BaseModel)')
+    parser.add_argument('--models', type=str, help='input 3 models to train MASK,GENDER,AGE sequentially(default: args.model,args.model,args.model)')
     parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer type (default: SGD)')
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate (default: 1e-3)')
     parser.add_argument('--val_ratio', type=float, default=0.2, help='ratio for validaton (default: 0.2)')
@@ -319,6 +345,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR', './model'))
 
     args = parser.parse_args()
+    addModels(args)
     print(args)
 
     data_dir = args.data_dir

@@ -7,6 +7,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from dataset import TestDataset, MaskBaseDataset
+from train import addModels, isModelsValid
 from mergeSubmissions import merge
 
 InferSplitNum = {
@@ -27,18 +28,18 @@ def load_model(saved_model, num_classes, device, infer_split):
     if infer_split == 'all':
         model_path = os.path.join(saved_model, 'best.pth')
     else:
-        print(infer_split)
         model_path = os.path.join(saved_model, f'best_{infer_split}.pth')
-    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.load_state_dict(torch.load(model_path, map_location=device), strict=False)
 
     return model
 
 
 @torch.no_grad()
 def inference(data_dir, model_dir, output_dir, args):
-    """
-    """
-    for infer_split in InferSplitNum[args.infer_split]:
+    if not isModelsValid(args.models):
+        return
+    for infer_split, model in zip(InferSplitNum[args.infer_split], args.models.split(',')):
+        print(f'Inference splited into {InferSplitNum[args.infer_split]}..inferring -> {infer_split} by {model}')
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda" if use_cuda else "cpu")
 
@@ -85,6 +86,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=42, help='input batch size for validing (default: 1000)')
     parser.add_argument('--resize', type=tuple, default=(224, 224), help='resize size for image when you trained (default: (96, 128))')
     parser.add_argument('--model', type=str, default='BaseModel', help='model type (default: BaseModel)')
+    parser.add_argument('--models', type=str, help='input 3 models to infer MASK,GENDER,AGE sequentially(default: args.model,args.model,args.model)')
     parser.add_argument('--infer_split', type=str, default='all', help='choose between [all, one_by_one]')
 
     # Container environment
@@ -93,6 +95,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', type=str, default=os.environ.get('SM_OUTPUT_DATA_DIR', './output'))
 
     args = parser.parse_args()
+    addModels(args)
 
     data_dir = args.data_dir
     model_dir = args.model_dir
@@ -101,6 +104,6 @@ if __name__ == '__main__':
     os.makedirs(output_dir, exist_ok=True)
 
     inference(data_dir, model_dir, output_dir, args)
-    if args.infer_split == 'one_by_one':
+    if args.infer_split == 'one_by_one' and args.models is not None:
         merge()
         print('Merge Done!')
