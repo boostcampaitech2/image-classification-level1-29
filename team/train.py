@@ -11,11 +11,13 @@ import wandb
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import seaborn as sns
 import torch
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, confusion_matrix
 from dataset import MaskBaseDataset
 from loss import create_criterion
 import warnings
@@ -85,6 +87,14 @@ def increment_path(path, exist_ok=False):
         n = max(i) + 1 if i else 2
         return f"{path}{n}"
 
+def conf_mat(y_true,y_pred):
+    cm=confusion_matrix(y_true,y_pred)
+    norm_cm=cm/np.sum(cm, axis=1)[:,None]
+    indices=['wear,m,<30','wear,m,mask<>','wear,m,mask60','wear,f,<30','wear,f,<>','wear,f,60','inc,m,<30','inc,m,<>','inc,m,60','inc,f,<30','inc,f,<>','inc,f,60','nom,m,<30','nom,m,<>','nom,m,60','nom,f,<30','nom,f,<>','nom,f,60']
+    cm=pd.DataFrame(norm_cm,index=indices,columns=indices)
+    fig=plt.figure(figsize=(11,9))
+    sns.heatmap(cm,annot=True)
+    return fig
 
 def train(data_dir, model_dir, args):
     seed_everything(args.seed)
@@ -166,6 +176,7 @@ def train(data_dir, model_dir, args):
         matches = 0
         total_pred=torch.tensor([]).to(device)
         total_label=torch.tensor([]).to(device)
+        print('Training...')
         with tqdm(train_loader) as pbar:
             for idx, train_batch in enumerate(pbar):
                 inputs, labels = train_batch
@@ -201,12 +212,14 @@ def train(data_dir, model_dir, args):
                 train_loss=loss_value/(idx+1)
                 train_acc=matches/args.batch_size/(idx+1)
                 pbar.set_postfix({'epoch' : epoch, 'loss' :train_loss, 'accuracy' : train_acc ,'F1 score':f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')})
-        
+                train_total_pred=total_pred
+                train_total_label=total_label
         
 
         scheduler.step()
 
         # val loop
+
         with torch.no_grad():
             print("Calculating validation results...")
             model.eval()
@@ -241,10 +254,9 @@ def train(data_dir, model_dir, args):
 
             val_loss = np.sum(val_loss_items) / len(val_loader)
             val_acc = np.sum(val_acc_items) / len(val_set)
-            print(val_acc)
             best_val_loss = min(best_val_loss, val_loss)
             if val_acc > best_val_acc:
-                print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..")
+                print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..\n")
                 torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
                 best_val_acc = val_acc
             torch.save(model.module.state_dict(), f"{save_dir}/last.pth")
@@ -255,15 +267,14 @@ def train(data_dir, model_dir, args):
                 logger.add_scalar("Val/loss", val_loss, epoch)
                 logger.add_scalar("Val/accuracy", val_acc, epoch)
                 logger.add_figure("results", figure, epoch)'''
-                    
-            wandb.log({'train loss': train_loss, 'train acc' : train_acc,'val loss' : val_loss, 'val acc' :val_acc })
+            train_cm=conf_mat(train_total_label.cpu(),train_total_pred.cpu())
+            val_cm=conf_mat(total_label.cpu(),total_pred.cpu())
+            wandb.log({'train loss': train_loss, 'train acc' : train_acc,'train confusion matrix' : wandb.Image(train_cm),'val loss' : val_loss, 'val acc' :val_acc,'val confusion matrix' : wandb.Image(val_cm)})
+            plt.close()
     wandb.finish()
 
 
 if __name__ == '__main__':
-    
-    
-
     parser = argparse.ArgumentParser()
 
     #from dotenv import load_dotenv
@@ -286,6 +297,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr_decay_step', type=int, default=20, help='learning rate scheduler deacy step (default: 20)')
     parser.add_argument('--log_interval', type=int, default=20, help='how many batches to wait before logging training status')
     parser.add_argument('--name', default='exp', help='model save at {SM_MODEL_DIR}/{name}')
+    parser.add_argument('--weight', default=[1042/3/549,1042/3/410,1042/3/83,1658/3/732,1658/3/817,1658/3/109], help='model save at {SM_MODEL_DIR}/{name}')
 
     # Container environment
     parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/images'))
@@ -297,5 +309,5 @@ if __name__ == '__main__':
     data_dir = args.data_dir
     model_dir = args.model_dir
     config = {'epochs':args.epochs,'batch_size':args.batch_size,'learning_rate':args.lr}
-    wandb.init(project='-', entity='team29',config=config)
+    wandb.init(project=args.name, entity='team29',config=config)
     train(data_dir, model_dir, args)
