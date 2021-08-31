@@ -5,11 +5,13 @@ from enum import Enum
 from typing import Tuple, List
 
 import numpy as np
+import pandas as pd
 import torch
 from PIL import Image
 from torch.utils.data import Dataset, Subset, random_split
 from torchvision import transforms
 from torchvision.transforms import *
+from makeTrainExpand import makeExpandFiles
 
 IMG_EXTENSIONS = [
     ".jpg", ".JPG", ".jpeg", ".JPEG", ".png",
@@ -127,9 +129,8 @@ class MaskBaseDataset(Dataset):
     gender_labels = []
     age_labels = []
 
-    def __init__(self, data_dir, split, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
+    def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
         self.data_dir = data_dir
-        self.split = split
         self.mean = mean
         self.std = std
         self.val_ratio = val_ratio
@@ -189,14 +190,7 @@ class MaskBaseDataset(Dataset):
         multi_class_label = self.encode_multi_class(mask_label, gender_label, age_label)
 
         image_transform = self.transform(image)
-        if self.split == 'mask':
-            return image_transform, mask_label
-        elif self.split == 'gender':
-            return image_transform, gender_label
-        elif self.split == 'age':
-            return image_transform, age_label
-        else:
-            return image_transform, multi_class_label
+        return image_transform, multi_class_label
 
     def __len__(self):
         return len(self.image_paths)
@@ -213,17 +207,6 @@ class MaskBaseDataset(Dataset):
     def read_image(self, index):
         image_path = self.image_paths[index]
         return Image.open(image_path)
-    
-    @staticmethod
-    def getClassNum(split):
-        if split == 'mask':
-            return MaskBaseDataset.mask_classes
-        elif split == 'gender':
-            return MaskBaseDataset.gender_classes
-        elif split == 'age':
-            return MaskBaseDataset.age_classes
-        else:
-            return MaskBaseDataset.num_classes
 
     @staticmethod
     def encode_multi_class(mask_label, gender_label, age_label) -> int:
@@ -334,3 +317,47 @@ class TestDataset(Dataset):
 
     def __len__(self):
         return len(self.img_paths)
+
+
+class MyDataset(MaskBaseDataset):
+    mask_classes = 3
+    age_classes = 3
+    gender_classes = 2
+    
+    def __init__(
+        self, data_dir,
+        input_dir_dict={
+            'age':'train_expand_age.csv',
+            'gender':'train_expand_gender.csv',
+            'mask':'train_expand_mask.csv'
+        }, 
+        mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2
+    ):
+        self.input_dir_dict = input_dir_dict
+        self.train_dir = data_dir.rsplit('/', 1)[0]
+        super().__init__(data_dir, mean, std, val_ratio)
+        
+
+    def setup(self):
+        makeExpandFiles()
+        submission_age = pd.read_csv(os.path.join(self.train_dir, self.input_dir_dict['age']))
+        submission_gender = pd.read_csv(os.path.join(self.train_dir, self.input_dir_dict['gender']))
+        submission_mask = pd.read_csv(os.path.join(self.train_dir, self.input_dir_dict['mask']))
+        
+        self.image_paths = [os.path.join(self.data_dir, f'{path}/{file}') for path, file in zip(submission_age.path, submission_age.file)]
+        self.age_labels = [target for target in submission_age.target_age]
+        self.gender_labels = [target for target in submission_gender.target_gender]
+        self.mask_labels = [target for target in submission_mask.target_mask]
+    
+    def __getitem__(self, index):
+        image = self.read_image(index)
+        mask_labels = self.get_mask_label(index)
+        gender_labels = self.get_gender_label(index)
+        age_labels = self.get_age_label(index)
+        # multi_class_label = self.encode_multi_class(mask_label, gender_label, age_label)
+
+        if self.transform:
+            image = self.transform(image)
+        return image, age_labels
+
+    def getNumClasses(self):
