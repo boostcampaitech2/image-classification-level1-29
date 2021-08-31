@@ -297,7 +297,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr_decay_step', type=int, default=20, help='learning rate scheduler deacy step (default: 20)')
     parser.add_argument('--log_interval', type=int, default=20, help='how many batches to wait before logging training status')
     parser.add_argument('--name', default='exp', help='model save at {SM_MODEL_DIR}/{name}')
-    parser.add_argument('--weight', default=[1042/3/549,1042/3/410,1042/3/83,1658/3/732,1658/3/817,1658/3/109], help='model save at {SM_MODEL_DIR}/{name}')
+    parser.add_argument('--weight', default=None, help='model save at {SM_MODEL_DIR}/{name}')
 
     # Container environment
     parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/images'))
