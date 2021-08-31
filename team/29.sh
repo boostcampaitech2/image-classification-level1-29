@@ -2,6 +2,14 @@
 
 
 echo "Wish you get 0.9 f1 score this time..."
+
+echo "Please enter project name, if you don't ,it will be exp"
+read name
+
+if [ -z "$name"]; then
+    name='exp'
+fi
+
 echo "Please enter model number from below"
 
 echo "=============================================="
@@ -29,7 +37,7 @@ if [ -z "$dataset"]; then
     dataset=1
 fi
 
-case $modelnumber in
+case $dataset in
     0)
         dataset="MaskBaseDataset"
     ;;
@@ -44,23 +52,23 @@ esac
 
 case $modelnumber in
     1)
-        python3 train.py --model EfficientNet_b3 --epoch $epochnumber --dataset $dataset
+        python3 train.py --model EfficientNet_b3 --epoch $epochnumber --dataset $dataset --name $name
     ;;
 
 	2) 
-        python3 train.py --model Res2Next50 --epoch $epochnumber --dataset $dataset
+        python3 train.py --model Res2Next50 --epoch $epochnumber --dataset $dataset --name $name
     ;;
 
     3) 
-        python3 train.py --model ResNext50 --epoch $epochnumber --dataset $dataset
+        python3 train.py --model ResNext50 --epoch $epochnumber --dataset $dataset --name $name
     ;;
 
     4) 
-        python3 train.py --model DenseNet121 --epoch $epochnumber --dataset $dataset
+        python3 train.py --model DenseNet121 --epoch $epochnumber --dataset $dataset --name $name
     ;;
 
     5)
-        python3 train.py --model InceptionResnetv2 --epoch $epochnumber --dataset $dataset
+        python3 train.py --model InceptionResnetv2 --epoch $epochnumber --dataset $dataset --name $name
     ;;
     
 esac
