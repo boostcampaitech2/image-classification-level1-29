@@ -46,5 +46,3 @@ def merge():
     df.set_index('ImageID', inplace=True)
 
     df.to_csv(os.path.join(OUTPUT_DIR, 'output_join.csv'))
-
-merge()
