@@ -62,3 +62,11 @@ class EfficientNet_b3(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+
+class EfficientNet_b3_dropout(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.model = timm.create_model('efficientnet_b3', pretrained=True, num_classes=num_classes, drop_rate=0.7)
+
+    def forward(self, x):
+        return self.model(x)
