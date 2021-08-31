@@ -55,6 +55,7 @@ nunit-*.xml
 [Rr]eleasePS/
 dlldata.c
 **/input/
+**/wandb/
 PIS/code/saved/
 .vscode/
 # Benchmark Results
