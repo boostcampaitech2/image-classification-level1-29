@@ -8,6 +8,9 @@ import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import Dataset, Subset, random_split
+from sklearn.model_selection import train_test_split
+import pandas as pd
+from pandas_streaming.df import train_test_apart_stratify
 from torchvision import transforms
 from torchvision.transforms import *
 from facenet_pytorch import MTCNN
@@ -125,6 +128,9 @@ class MaskBaseDataset(Dataset):
     mask_labels = []
     gender_labels = []
     age_labels = []
+    all_labels = []
+    indexs = []
+    groups = []
 
     def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
         self.data_dir = data_dir
@@ -137,6 +143,7 @@ class MaskBaseDataset(Dataset):
         self.calc_statistics()
 
     def setup(self):
+        cnt = 0
         profiles = os.listdir(self.data_dir)
         for profile in profiles:
             if profile.startswith("."):  # "." 로 시작하는 파일은 무시합니다
@@ -159,6 +166,10 @@ class MaskBaseDataset(Dataset):
                 self.mask_labels.append(mask_label)
                 self.gender_labels.append(gender_label)
                 self.age_labels.append(age_label)
+                self.all_labels.append(self.encode_multi_class(mask_label, gender_label, age_label))
+                self.indexs.append(cnt)
+                self.groups.append(id)
+                cnt += 1
 
     def calc_statistics(self):
         has_statistics = self.mean is not None and self.std is not None
@@ -232,10 +243,13 @@ class MaskBaseDataset(Dataset):
         torch.utils.data.Subset 클래스 둘로 나눕니다.
         구현이 어렵지 않으니 구글링 혹은 IDE (e.g. pycharm) 의 navigation 기능을 통해 코드를 한 번 읽어보는 것을 추천드립니다^^
         """
-        n_val = int(len(self) * self.val_ratio)
-        n_train = len(self) - n_val
-        train_set, val_set = random_split(self, [n_train, n_val])
-        return train_set, val_set
+        df = pd.DataFrame({"indexs":self.indexs, "groups":self.groups, "labels":self.all_labels})
+
+        train, valid = train_test_apart_stratify(df, group="groups", stratify="labels", test_size=self.val_ratio)
+        train_index = train["indexs"].tolist()
+        valid_index = valid["indexs"].tolist()
+
+        return  [Subset(self, train_index), Subset(self, valid_index)]
 
 
 class MaskSplitByProfileDataset(MaskBaseDataset):
