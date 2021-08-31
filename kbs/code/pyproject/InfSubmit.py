@@ -30,7 +30,7 @@ class Inference():
 
     def inference(self,test_loader,model,device,all_predictions):
 
-        for images in test_loader:
+        for images in enumerate(test_loader):
             with torch.no_grad():
                 images = images.to(device)
                 scores = model(images)
