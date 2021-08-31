@@ -8,7 +8,7 @@ import re
 from importlib import import_module
 from pathlib import Path
 import wandb
-from tqdm.auto import tqdm
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
