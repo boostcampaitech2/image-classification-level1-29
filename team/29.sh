@@ -19,13 +19,7 @@ else
     trainsplit="one_by_one"
     echo "Do you want to split wandb project one by one too? Input anything"
     read projectsplit
-    if [ -z "$projectsplit" ]; then
-        projectsplit=0
-    else
-        projectsplit=1
-    fi
 fi
-
 echo "Please enter model number from below or Input model name what you want."
 
 echo "=============================================="
@@ -180,6 +174,8 @@ echo "You chose $Aug for augmentations"
 
 if [ -z $trainsplit ]; then
     python3 train.py --model $modelname --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
+elif [ -z "$projectsplit" ]; then
+    python3 train.py --models $modelnames --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug --train_split $trainsplit
 else
     python3 train.py --models $modelnames --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug --train_split $trainsplit --project_split $projectsplit
 fi
