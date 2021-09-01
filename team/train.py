@@ -263,8 +263,8 @@ def train(data_dir, model_dir, args):
                         loss_value = 0
                         matches = 0'''
                     train_loss=loss_value/(idx+1)
-                train_acc=matches/args.batch_size/(idx+1)
-                pbar.set_postfix({'epoch' : epoch, 'loss' :train_loss, 'accuracy' : train_acc ,'F1 score':f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')})
+                    train_acc=matches/args.batch_size/(idx+1)
+                    pbar.set_postfix({'epoch' : epoch, 'loss' :train_loss, 'accuracy' : train_acc ,'F1 score':f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')})
                 train_total_pred=total_pred
                 train_total_label=total_label
             
