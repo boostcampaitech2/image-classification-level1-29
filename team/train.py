@@ -24,7 +24,6 @@ from loss import create_criterion
 import warnings
 warnings.filterwarnings(action='ignore')
 
-EARLY_STOPPING_PATIENCE = 3
 
 TrainSplitNum = {
     'all': ['all'],
@@ -149,11 +148,13 @@ def rand_bbox(size, lam):
 def train(data_dir, model_dir, args):
     if not args.project_split or args.train_split=='all':
         wandb.init(project=args.name, entity='team29',config=config)
+        print(args)
     if not isModelsValid(args.models):
         return
     for train_split, model in zip(TrainSplitNum[args.train_split], args.models.split(',')):
         if args.project_split and args.train_split!='all':
             wandb.init(project=args.name+'_'+train_split, entity='team29',config=config)
+            print(args)
         print(f'Train splited into {TrainSplitNum[args.train_split]}..training -> {train_split} by {model}')
         seed_everything(args.seed)
 
@@ -184,25 +185,33 @@ def train(data_dir, model_dir, args):
         dataset.set_transform(transform)
 
         # -- data_loader
-        train_set, val_set = dataset.split_dataset()
-
-        train_loader = DataLoader(
-            train_set,
-            batch_size=args.batch_size,
-            num_workers=4,
-            shuffle=True,
-            pin_memory=False,
-            drop_last=True,
-        )
-
-        val_loader = DataLoader(
-            val_set,
-            batch_size=args.valid_batch_size,
-            num_workers=4,
-            shuffle=False,
-            pin_memory=False,
-            drop_last=True,
-        )
+        if args.full_train == "yes":
+            train_loader = DataLoader(
+                dataset,
+                batch_size=args.batch_size,
+                num_workers=4,
+                shuffle=True,
+                pin_memory=use_cuda,
+                drop_last=True,
+            )
+        else:
+            train_set, val_set = dataset.split_dataset()
+            train_loader = DataLoader(
+                train_set,
+                batch_size=args.batch_size,
+                num_workers=4,
+                shuffle=True,
+                pin_memory=False,
+                drop_last=True,
+            )
+            val_loader = DataLoader(
+                val_set,
+                batch_size=args.valid_batch_size,
+                num_workers=4,
+                shuffle=False,
+                pin_memory=False,
+                drop_last=True,
+            )
 
         # -- mode
         if train_split == 'all':
@@ -241,14 +250,19 @@ def train(data_dir, model_dir, args):
 
         best_val_acc = 0
         best_val_loss = np.inf
+        best_val_f1 = 0
+        best_train_f1 = 0
         
-        early_stopping_counter=0
+        # early stopping
+        EARLY_STOPPING_PATIENCE = args.patience
+        early_stopping_counter = 0
 
         for epoch in range(args.epochs):
             # train loop
             model.train()
             loss_value = 0
             matches = 0
+            epoch_f1 = 0
             total_pred=torch.tensor([]).to(device)
             total_label=torch.tensor([]).to(device)
             print('Training...')
@@ -282,39 +296,49 @@ def train(data_dir, model_dir, args):
 
                     loss_value += loss.item()
                     matches += (preds == labels).sum().item()
+                    iteration_f1 = f1_score(preds.cpu().numpy(), labels.cpu().numpy(), average='macro')
+                    epoch_f1 += iteration_f1
+
                     total_pred=torch.hstack((total_pred,preds))
                     total_label=torch.hstack((total_label,labels))
-                    '''if (idx + 1) % args.log_interval == 0:
-                        train_loss = loss_value / args.log_interval
-                        train_acc = matches / args.batch_size / args.log_interval
-                        current_lr = get_lr(optimizer)
-                        print(
-                            f"Epoch[{epoch}/{args.epochs}]({idx + 1}/{len(train_loader)}) || "
-                            f"training loss {train_loss:4.4} || training accuracy {train_acc:4.2%} || lr {current_lr}"
-                        )
-                        logger.add_scalar("Train/loss", train_loss, epoch * len(train_loader) + idx)
-                        logger.add_scalar("Train/accuracy", train_acc, epoch * len(train_loader) + idx)
 
-                        loss_value = 0
-                        matches = 0'''
-                    train_loss=loss_value/(idx+1)
-                    train_acc=matches/args.batch_size/(idx+1)
-                    pbar.set_postfix({'epoch' : epoch, 'loss' :train_loss, 'accuracy' : train_acc ,'F1 score':f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')})
+                    train_loss = loss_value / (idx + 1)
+                    train_acc = matches / args.batch_size / (idx + 1)
+                    train_f1_macro = epoch_f1 / (idx + 1)
+                    
+                    pbar.set_postfix({'epoch': epoch, 'loss': train_loss, 'acc' : train_acc ,'f1 score': train_f1_macro})
                 train_total_pred=total_pred
                 train_total_label=total_label
             
             
             if not args.scheduler == 'ReduceLROnPlateau':
                 scheduler.step()
+            
+            if args.full_train == "yes":
+                if train_f1_macro > best_train_f1:
+                    early_stopping_counter = 0
+                    print(f"New best model for f1 score : {train_f1_macro:4.4}! saving the best model..")
+                    if train_split == 'all':
+                        torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
+                    else:
+                        torch.save(model.module.state_dict(), f"{save_dir}/best_{train_split}.pth")
+                    best_train_f1 = train_f1_macro
+                else:
+                    # early stopping
+                    early_stopping_counter += 1
+                    if early_stopping_counter >= EARLY_STOPPING_PATIENCE:  # patience
+                        print("EARLY STOPPING!!")
+                        break
+                torch.save(model.module.state_dict(), f"{save_dir}/last.pth")
+                continue
 
             # val loop
             with torch.no_grad():
                 print("Calculating validation results...")
                 model.eval()
-                early_stopping_flag = True
-                val_loss_items = []
-                val_acc_items = []
-                #figure = None
+                loss_value = 0
+                matches = 0
+                epoch_f1 = 0
                 total_pred=torch.tensor([]).to(device)
                 total_label=torch.tensor([]).to(device)
                 with tqdm(val_loader) as pbar:
@@ -326,54 +350,45 @@ def train(data_dir, model_dir, args):
                         outs = model(inputs)
                         preds = torch.argmax(outs, dim=-1)
 
-                        loss_item = criterion(outs, labels).item()
-                        acc_item = (labels == preds).sum().item()
-                        val_loss_items.append(loss_item)
-                        val_acc_items.append(acc_item)
+                        loss_value += criterion(outs, labels).item()
+                        matches += (labels == preds).sum().item()
+                        epoch_f1 += f1_score(preds.cpu().numpy(), labels.cpu().numpy(), average='macro')
+
                         total_pred=torch.hstack((total_pred,preds))
                         total_label=torch.hstack((total_label,labels))
 
-                        '''if figure is None:
-                            inputs_np = torch.clone(inputs).detach().cpu().permute(0, 2, 3, 1).numpy()
-                            inputs_np = dataset_module.denormalize_image(inputs_np, dataset.mean, dataset.std)
-                            figure = grid_image(
-                                inputs_np, labels, preds, n=16, shuffle=args.dataset != "MaskSplitByProfileDataset"
-                            )'''
-                        pbar.set_postfix({'epoch' : epoch, 'loss' :np.sum(val_loss_items)/len(val_loss_items), 'accuracy' : np.sum(val_acc_items)/args.valid_batch_size/len(val_acc_items),'F1 score':f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')})
+                        val_loss = loss_value / (idx + 1)
+                        val_acc = matches / args.batch_size / (idx + 1)
+                        val_f1_macro = epoch_f1 / (idx + 1)
 
-                val_loss = np.sum(val_loss_items) / len(val_loader)
-                val_acc = np.sum(val_acc_items) / len(val_set)
+                        pbar.set_postfix({'epoch': epoch, 'loss': val_loss, 'acc': val_acc, 'f1 score': val_f1_macro})
+
                 best_val_loss = min(best_val_loss, val_loss)
-                if val_acc > best_val_acc:
-                    early_stopping_flag=False
-                    early_stopping_counter=0
-                    print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..")
+                best_val_acc = max(best_val_acc, val_acc)
+                if val_f1_macro > best_val_f1:
+                    early_stopping_counter = 0
+                    print(f"New best model for f1 score : {val_f1_macro:4.4}! saving the best model..")
                     if train_split == 'all':
                         torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
                     else:
                         torch.save(model.module.state_dict(), f"{save_dir}/best_{train_split}.pth")
-                    best_val_acc = val_acc
+                    best_val_f1 = val_f1_macro
+                else:
+                    # early stopping
+                    early_stopping_counter += 1
+                    if early_stopping_counter >= EARLY_STOPPING_PATIENCE:  # patience
+                        print("EARLY STOPPING!!")
+                        break
                 torch.save(model.module.state_dict(), f"{save_dir}/last.pth")
-                '''print(
-                        f"[Val] acc : {val_acc:4.2%}, loss: {val_loss:4.2} || "
-                        f"best acc : {best_val_acc:4.2%}, best loss: {best_val_loss:4.2}"
-                    )
-                    logger.add_scalar("Val/loss", val_loss, epoch)
-                    logger.add_scalar("Val/accuracy", val_acc, epoch)
-                    logger.add_figure("results", figure, epoch)'''
 
+                # confusion matrix
                 train_cm=conf_mat(train_total_label.cpu(),train_total_pred.cpu())
                 val_cm=conf_mat(total_label.cpu(),total_pred.cpu())
-                wandb.log({'train loss': train_loss, 'train acc' : train_acc,'train confusion matrix' : wandb.Image(train_cm),'val loss' : val_loss, 'val acc' :val_acc,'val confusion matrix' : wandb.Image(val_cm)})
+                wandb.log({
+                    'train loss': train_loss, 'train acc': train_acc, 'train_f1_macro': train_f1_macro, 'train confusion matrix': wandb.Image(train_cm),
+                    'val loss': val_loss, 'val acc': val_acc, 'valid_f1_macro': val_f1_macro, 'val confusion matrix': wandb.Image(val_cm)})
                 plt.close()
 
-
-                if early_stopping_flag:
-                    early_stopping_counter+=1
-                    
-                    if early_stopping_counter >= EARLY_STOPPING_PATIENCE:
-                        print("EARLY STOPPING")
-                        break
         if args.project_split and args.train_split!='all':
             wandb.finish()
     if not args.project_split or args.train_split=='all':
@@ -391,6 +406,7 @@ if __name__ == '__main__':
     # Data and model checkpoints directories
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs to train (default: 1)')
+    parser.add_argument('--patience', type=int, default=5, help='early stopping patience (default: 5)')
     parser.add_argument('--dataset', type=str, default='MaskSplitByClassDataset', help='dataset augmentation type (default: MaskBaseDataset)')
     parser.add_argument('--augmentation', type=str, default='BaseAugmentation', help='data augmentation type (default: BaseAugmentation)')
     parser.add_argument('--BETA', type=float, default=-1.0, help="If you want CutMix, give 1.0 (default: -1.0)")
@@ -410,6 +426,7 @@ if __name__ == '__main__':
     parser.add_argument('--weight', default=None, help='Input weight if you want')
     parser.add_argument('--train_split', type=str, default='all', help='choose between [all, one_by_one]')
     parser.add_argument('--project_split', type=bool, default=False, help='Set True if you want split when you train models one by one')
+    parser.add_argument('--full_train', type=str, default="no", help="If you want full train dataset, give yes (default: no)")
 
     # Container environment
     parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/images'))
