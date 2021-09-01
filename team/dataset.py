@@ -356,7 +356,7 @@ class MaskSplitByClassDataset(Dataset):
         "incorrect_mask": MaskLabels.INCORRECT,
         "normal": MaskLabels.NORMAL
     }
-    """
+    
     def __init__(self, data_dir, split, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
         self.data_dir = data_dir
         self.split = split
@@ -375,26 +375,26 @@ class MaskSplitByClassDataset(Dataset):
         self.transform = None
         self.setup()
         self.calc_statistics()
-    """
-    def __init__(self, data_dir, data_dir2, split, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
-        self.data_dir = data_dir
-        self.data_dir2 = data_dir2
-        self.split = split
-        self.mean = mean
-        self.std = std
-        self.val_ratio = val_ratio
+    
+    # def __init__(self, data_dir, data_dir2, split, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
+    #     self.data_dir = data_dir
+    #     self.data_dir2 = data_dir2
+    #     self.split = split
+    #     self.mean = mean
+    #     self.std = std
+    #     self.val_ratio = val_ratio
 
-        self.image_paths = []
-        self.mask_labels = []
-        self.gender_labels = []
-        self.age_labels = []
-        self.all_labels = []
-        self.indexs = []
-        self.groups = []
+    #     self.image_paths = []
+    #     self.mask_labels = []
+    #     self.gender_labels = []
+    #     self.age_labels = []
+    #     self.all_labels = []
+    #     self.indexs = []
+    #     self.groups = []
 
-        self.transform = None
-        self.setup()
-        self.calc_statistics()
+    #     self.transform = None
+    #     self.setup()
+    #     self.calc_statistics()
 
     def setup(self):
         cnt = 0
@@ -410,33 +410,6 @@ class MaskSplitByClassDataset(Dataset):
                     continue
 
                 img_path = os.path.join(self.data_dir, profile, file_name)  # (resized_data, 000004_male_Asian_54, mask1.jpg)
-                mask_label = self._file_names[_file_name]
-
-                id, gender, race, age = profile.split("_")
-                gender_label = GenderLabels.from_str(gender)
-                age_label = AgeLabels.from_number(age)
-
-                self.image_paths.append(img_path)
-                self.mask_labels.append(mask_label)
-                self.gender_labels.append(gender_label)
-                self.age_labels.append(age_label)
-                self.all_labels.append(self.encode_multi_class(mask_label, gender_label, age_label))
-                self.indexs.append(cnt)
-                self.groups.append(id)
-                cnt += 1
-
-        profiles = os.listdir(self.data_dir2)
-        for profile in profiles:
-            if profile.startswith("."):  # "." 로 시작하는 파일은 무시합니다
-                continue
-
-            img_folder = os.path.join(self.data_dir2, profile)
-            for file_name in os.listdir(img_folder):
-                _file_name, ext = os.path.splitext(file_name)
-                if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
-                    continue
-
-                img_path = os.path.join(self.data_dir2, profile, file_name)  # (resized_data, 000004_male_Asian_54, mask1.jpg)
                 mask_label = self._file_names[_file_name]
 
                 id, gender, race, age = profile.split("_")
@@ -507,13 +480,13 @@ class MaskSplitByClassDataset(Dataset):
     @staticmethod
     def getClassNum(split):
         if split == 'mask':
-            return MaskBaseDataset.mask_classes
+            return MaskSplitByClassDataset.mask_classes
         elif split == 'gender':
-            return MaskBaseDataset.gender_classes
+            return MaskSplitByClassDataset.gender_classes
         elif split == 'age':
-            return MaskBaseDataset.age_classes
+            return MaskSplitByClassDataset.age_classes
         else:
-            return MaskBaseDataset.num_classes
+            return MaskSplitByClassDataset.num_classes
 
     @staticmethod
     def encode_multi_class(mask_label, gender_label, age_label) -> int:

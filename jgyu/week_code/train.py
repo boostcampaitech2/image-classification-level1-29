@@ -11,7 +11,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -144,7 +144,12 @@ def train(data_dir, model_dir, args):
         lr=args.lr,
         weight_decay=5e-4
     )
-    scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
+    if args.scheduler == "StepLR":
+        scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
+    elif args.scheduler == "CosineAnnealingLR":
+        scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
+    else:
+        raise ValueError
 
     # -- logging
     logger = SummaryWriter(log_dir=save_dir)

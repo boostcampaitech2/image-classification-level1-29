@@ -14,6 +14,7 @@ from pandas_streaming.df import train_test_apart_stratify
 from torchvision import transforms
 from torchvision.transforms import *
 from facenet_pytorch import MTCNN
+from auto_augment import AutoAugment, Cutout
 
 
 IMG_EXTENSIONS = [
@@ -30,6 +31,62 @@ class BaseAugmentation:
     def __init__(self, resize, mean, std, **args):
         self.transform = transforms.Compose([
             Resize(resize, Image.BILINEAR),
+            ToTensor(),
+            Normalize(mean=mean, std=std),
+        ])
+
+    def __call__(self, image):
+        return self.transform(image)
+
+
+class CenterCropResize:
+    def __init__(self, resize, mean, std, **args):
+        self.transform = transforms.Compose([
+            CenterCrop((350, 300)),
+            Resize(resize, Image.BILINEAR),
+            ToTensor(),
+            Normalize(mean=mean, std=std),
+        ])
+
+    def __call__(self, image):
+        return self.transform(image)
+
+
+class AutoAugmentation:
+    def __init__(self, resize, mean, std, **args):
+        self.transform = transforms.Compose([
+            CenterCrop((350, 300)),
+            Resize(resize, Image.BILINEAR),
+            AutoAugment(),
+            ToTensor(),
+            Normalize(mean=mean, std=std),
+        ])
+
+    def __call__(self, image):
+        return self.transform(image)
+
+
+class AutoAugCutout:
+    def __init__(self, resize, mean, std, **args):
+        self.transform = transforms.Compose([
+            CenterCrop((350, 300)),
+            Resize(resize, Image.BILINEAR),
+            AutoAugment(),
+            Cutout(),
+            ToTensor(),
+            Normalize(mean=mean, std=std),
+        ])
+
+    def __call__(self, image):
+        return self.transform(image)
+
+
+class CutoutAugmentation:
+    def __init__(self, resize, mean, std, **args):
+        self.transform = transforms.Compose([
+            CenterCrop((350, 300)),
+            Resize(resize, Image.BILINEAR),
+            Cutout(),
             ToTensor(),
             Normalize(mean=mean, std=std),
         ])
@@ -313,7 +370,10 @@ class MaskSplitByProfileDataset(MaskBaseDataset):
 class TestDataset(Dataset):
     def __init__(self, img_paths, resize, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246)):
         self.img_paths = img_paths
+        self.mean = mean
+        self.std = std
         self.transform = transforms.Compose([
+            CenterCrop((350, 300)),
             Resize(resize, Image.BILINEAR),
             ToTensor(),
             Normalize(mean=mean, std=std),
@@ -322,33 +382,12 @@ class TestDataset(Dataset):
     def __getitem__(self, index):
         image = Image.open(self.img_paths[index])
         
-        # mtcnn 적용
-        #use_cuda = torch.cuda.is_available()
-        #device = torch.device("cuda" if use_cuda else "cpu")
-        mtcnn = MTCNN(keep_all=True)
-        boxes, probs = mtcnn.detect(image)
-        
-        if not isinstance(boxes, np.ndarray):
-            # 직접 crop
-            image = image.crop([50, 100, 350, 400])
-        
-        # boexes size 확인
-        else:
-            xmin = int(boxes[0, 0])-30
-            ymin = int(boxes[0, 1])-30
-            xmax = int(boxes[0, 2])+30
-            ymax = int(boxes[0, 3])+30
-            
-            if xmin < 0: xmin = 0
-            if ymin < 0: ymin = 0
-            if xmax > 384: xmax = 384
-            if ymax > 512: ymax = 512
-            
-            image = image.crop([xmin, ymin, xmax, ymax])
-
         if self.transform:
             image = self.transform(image)
         return image
 
     def __len__(self):
         return len(self.img_paths)
+
+    def set_transform(self, transform):
+        self.transform = transform

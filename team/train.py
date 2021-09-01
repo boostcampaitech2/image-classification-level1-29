@@ -96,7 +96,10 @@ def increment_path(path, exist_ok=False):
 def conf_mat(y_true,y_pred):
     cm=confusion_matrix(y_true,y_pred)
     norm_cm=cm/np.sum(cm, axis=1)[:,None]
-    indices=['wear,m,<30','wear,m,mask<>','wear,m,mask60','wear,f,<30','wear,f,<>','wear,f,60','inc,m,<30','inc,m,<>','inc,m,60','inc,f,<30','inc,f,<>','inc,f,60','nom,m,<30','nom,m,<>','nom,m,60','nom,f,<30','nom,f,<>','nom,f,60']
+    if len(set([y.item() for y in y_true]))==18:
+        indices=['wear,m,<30','wear,m,mask<>','wear,m,mask60','wear,f,<30','wear,f,<>','wear,f,60','inc,m,<30','inc,m,<>','inc,m,60','inc,f,<30','inc,f,<>','inc,f,60','nom,m,<30','nom,m,<>','nom,m,60','nom,f,<30','nom,f,<>','nom,f,60']
+    else:
+        indices=[i for i in range(len(set([y.item() for y in y_true])))]
     cm=pd.DataFrame(norm_cm,index=indices,columns=indices)
     fig=plt.figure(figsize=(11,9))
     sns.heatmap(cm,annot=True)
@@ -123,9 +126,13 @@ def isModelsValid(models):
     return True
 
 def train(data_dir, model_dir, args):
+    if not args.project_split or args.train_split=='all':
+        wandb.init(project=args.name, entity='team29',config=config)
     if not isModelsValid(args.models):
         return
     for train_split, model in zip(TrainSplitNum[args.train_split], args.models.split(',')):
+        if args.project_split and args.train_split!='all':
+            wandb.init(project=args.name+'_'+train_split, entity='team29',config=config)
         print(f'Train splited into {TrainSplitNum[args.train_split]}..training -> {train_split} by {model}')
         seed_everything(args.seed)
 
@@ -144,7 +151,6 @@ def train(data_dir, model_dir, args):
         dataset_module = getattr(import_module("dataset"), args.dataset)  # default: BaseAugmentation
         dataset = dataset_module(
             data_dir=data_dir,
-            data_dir2='/opt/ml/input/data/train/cropped_images',
             split=train_split,
         )
         num_classes = dataset.getClassNum(train_split)  # 18
@@ -213,7 +219,8 @@ def train(data_dir, model_dir, args):
 
         best_val_acc = 0
         best_val_loss = np.inf
-        
+        best_f1_score = 0
+
         early_stopping_counter=0
 
         for epoch in range(args.epochs):
@@ -223,6 +230,7 @@ def train(data_dir, model_dir, args):
             matches = 0
             total_pred=torch.tensor([]).to(device)
             total_label=torch.tensor([]).to(device)
+            print('Training...')
             with tqdm(train_loader) as pbar:
                 for idx, train_batch in enumerate(pbar):
                     inputs, labels = train_batch
@@ -256,8 +264,8 @@ def train(data_dir, model_dir, args):
                         loss_value = 0
                         matches = 0'''
                     train_loss=loss_value/(idx+1)
-                train_acc=matches/args.batch_size/(idx+1)
-                pbar.set_postfix({'epoch' : epoch, 'loss' :train_loss, 'accuracy' : train_acc ,'F1 score':f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')})
+                    train_acc=matches/args.batch_size/(idx+1)
+                    pbar.set_postfix({'epoch' : epoch, 'loss' :train_loss, 'accuracy' : train_acc ,'F1 score':f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')})
                 train_total_pred=total_pred
                 train_total_label=total_label
             
@@ -301,11 +309,18 @@ def train(data_dir, model_dir, args):
 
                 val_loss = np.sum(val_loss_items) / len(val_loader)
                 val_acc = np.sum(val_acc_items) / len(val_set)
+                new_f1_score = f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')
                 best_val_loss = min(best_val_loss, val_loss)
-                if val_acc > best_val_acc:
+                
+
+                if best_f1_score < new_f1_score:
                     early_stopping_flag=False
                     early_stopping_counter=0
-                    print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..\n")
+                    best_f1_score = new_f1_score
+
+                if val_acc > best_val_acc:
+                    
+                    print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..")
                     if train_split == 'all':
                         torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
                     else:
@@ -319,14 +334,12 @@ def train(data_dir, model_dir, args):
                     logger.add_scalar("Val/loss", val_loss, epoch)
                     logger.add_scalar("Val/accuracy", val_acc, epoch)
                     logger.add_figure("results", figure, epoch)'''
+                
+                train_cm=conf_mat(train_total_label.cpu(),train_total_pred.cpu())
+                val_cm=conf_mat(total_label.cpu(),total_pred.cpu())
+                wandb.log({'train loss': train_loss, 'train acc' : train_acc,'train confusion matrix' : wandb.Image(train_cm),'val loss' : val_loss, 'val acc' :val_acc,'val confusion matrix' : wandb.Image(val_cm)})
+                plt.close()
 
-                if train_split == 'all':
-                    train_cm=conf_mat(train_total_label.cpu(),train_total_pred.cpu())
-                    val_cm=conf_mat(total_label.cpu(),total_pred.cpu())
-                    wandb.log({'train loss': train_loss, 'train acc' : train_acc,'train confusion matrix' : wandb.Image(train_cm),'val loss' : val_loss, 'val acc' :val_acc,'val confusion matrix' : wandb.Image(val_cm)})
-                    plt.close()
-                else:
-                    wandb.log({'train loss': train_loss, 'train acc' : train_acc,'val loss' : val_loss, 'val acc' :val_acc })
 
                 if early_stopping_flag:
                     early_stopping_counter+=1
@@ -334,7 +347,10 @@ def train(data_dir, model_dir, args):
                     if early_stopping_counter >= EARLY_STOPPING_PATIENCE:
                         print("EARLY STOPPING")
                         break
-                
+        if args.project_split and args.train_split!='all':
+            wandb.finish()
+    if not args.project_split or args.train_split=='all':
+        wandb.finish()
 
 
 
@@ -347,8 +363,8 @@ if __name__ == '__main__':
 
     # Data and model checkpoints directories
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
-    parser.add_argument('--epochs', type=int, default=3, help='number of epochs to train (default: 1)')
-    parser.add_argument('--dataset', type=str, default='MaskBaseDataset', help='dataset augmentation type (default: MaskBaseDataset)')
+    parser.add_argument('--epochs', type=int, default=100, help='number of epochs to train (default: 1)')
+    parser.add_argument('--dataset', type=str, default='MaskSplitByClassDataset', help='dataset augmentation type (default: MaskBaseDataset)')
     parser.add_argument('--augmentation', type=str, default='BaseAugmentation', help='data augmentation type (default: BaseAugmentation)')
     parser.add_argument("--resize", nargs="+", type=list, default=[384,384], help='resize size for image when training')
     parser.add_argument('--batch_size', type=int, default=32, help='input batch size for training (default: 64)')
@@ -363,8 +379,9 @@ if __name__ == '__main__':
     parser.add_argument('--lr_decay_step', type=int, default=20, help='learning rate scheduler deacy step (default: 20)')
     parser.add_argument('--log_interval', type=int, default=20, help='how many batches to wait before logging training status')
     parser.add_argument('--name', default='exp', help='model save at {SM_MODEL_DIR}/{name}')
-    parser.add_argument('--weight', default=None, help='model save at {SM_MODEL_DIR}/{name}')
+    parser.add_argument('--weight', default=None, help='Input weight if you want')
     parser.add_argument('--train_split', type=str, default='all', help='choose between [all, one_by_one]')
+    parser.add_argument('--project_split', type=bool, default=False, help='Set True if you want split when you train models one by one')
 
     # Container environment
     parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/images'))
@@ -377,6 +394,6 @@ if __name__ == '__main__':
     data_dir = args.data_dir
     model_dir = args.model_dir
     config = {'epochs':args.epochs,'batch_size':args.batch_size,'learning_rate':args.lr}
-    wandb.init(project=args.name, entity='team29',config=config)
+    
     train(data_dir, model_dir, args)
-    wandb.finish()
+    

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import timm
+import facenet_pytorch
 
 
 class BaseModel(nn.Module):
@@ -68,5 +69,41 @@ class EfficientNet_b3_dropout(nn.Module):
         super().__init__()
         self.model = timm.create_model('efficientnet_b3', pretrained=True, num_classes=num_classes, drop_rate=0.7)
 
+    def forward(self, x):
+        return self.model(x)
+
+
+class InceptionResnetV1(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.model  = facenet_pytorch.InceptionResnetV1(pretrained='vggface2', classify=True, num_classes=num_classes)
+    
+    def forward(self,x):
+        return self.model(x)
+
+
+class EfficientNet_b4(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.model = timm.create_model('efficientnet_b4', pretrained=True, num_classes=num_classes)
+
+    def forward(self, x):
+        return self.model(x)
+
+
+class ViT(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.model = timm.create_model('vit_base_patch16_224', pretrained=True, num_classes=num_classes)
+    
+    def forward(self, x):
+        return self.model(x)
+
+
+class Deit(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.model = timm.create_model('deit_base_patch16_384', pretrained=True, num_classes=num_classes)
+    
     def forward(self, x):
         return self.model(x)
