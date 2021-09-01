@@ -139,19 +139,12 @@ def train(data_dir, model_dir, args):
         
 
         # -- dataset
-        if args.dataset == "MaskBaseDataset":
-            dataset_module = getattr(import_module("dataset"), args.dataset)  # default: BaseAugmentation
-            dataset = dataset_module(
-                data_dir=data_dir,
-                split=train_split,
-            )
-            num_classes = dataset.getClassNum(train_split)  # 18
-        else :
-            dataset_module = getattr(import_module("dataset"), args.dataset)  # default: BaseAugmentation
-            dataset = dataset_module(
-                data_dir=data_dir,
-            )
-            num_classes = dataset.num_classes  # 18
+        dataset_module = getattr(import_module("dataset"), args.dataset)  # default: BaseAugmentation
+        dataset = dataset_module(
+            data_dir=data_dir,
+            split=train_split,
+        )
+        num_classes = dataset.getClassNum(train_split)  # 18
 
         # -- augmentation
         transform_module = getattr(import_module("dataset"), args.augmentation)  # default: BaseAugmentation

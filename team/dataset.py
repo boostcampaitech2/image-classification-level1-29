@@ -125,17 +125,17 @@ class MaskBaseDataset(Dataset):
         "normal": MaskLabels.NORMAL
     }
 
-    image_paths = []
-    mask_labels = []
-    gender_labels = []
-    age_labels = []
-
     def __init__(self, data_dir, split, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
         self.data_dir = data_dir
         self.split = split
         self.mean = mean
         self.std = std
         self.val_ratio = val_ratio
+
+        self.image_paths = []
+        self.mask_labels = []
+        self.gender_labels = []
+        self.age_labels = []
 
         self.transform = None
         self.setup()
@@ -340,7 +340,10 @@ class TestDataset(Dataset):
 
 
 class MaskSplitByClassDataset(Dataset):
-    num_classes = 3 * 2 * 3
+    mask_classes = 3
+    age_classes = 3
+    gender_classes = 2
+    num_classes = mask_classes * age_classes * gender_classes
 
     _file_names = {
         "mask1": MaskLabels.MASK,
@@ -352,19 +355,20 @@ class MaskSplitByClassDataset(Dataset):
         "normal": MaskLabels.NORMAL
     }
 
-    image_paths = []
-    mask_labels = []
-    gender_labels = []
-    age_labels = []
-    all_labels = []
-    indexs = []
-    groups = []
-
-    def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
+    def __init__(self, data_dir, split, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
         self.data_dir = data_dir
+        self.split = split
         self.mean = mean
         self.std = std
         self.val_ratio = val_ratio
+
+        self.image_paths = []
+        self.mask_labels = []
+        self.gender_labels = []
+        self.age_labels = []
+        self.all_labels = []
+        self.indexs = []
+        self.groups = []
 
         self.transform = None
         self.setup()
@@ -426,7 +430,14 @@ class MaskSplitByClassDataset(Dataset):
         multi_class_label = self.encode_multi_class(mask_label, gender_label, age_label)
 
         image_transform = self.transform(image)
-        return image_transform, multi_class_label
+        if self.split == 'mask':
+            return image_transform, mask_label
+        elif self.split == 'gender':
+            return image_transform, gender_label
+        elif self.split == 'age':
+            return image_transform, age_label
+        else:
+            return image_transform, multi_class_label
 
     def __len__(self):
         return len(self.image_paths)
@@ -443,6 +454,17 @@ class MaskSplitByClassDataset(Dataset):
     def read_image(self, index):
         image_path = self.image_paths[index]
         return Image.open(image_path)
+
+    @staticmethod
+    def getClassNum(split):
+        if split == 'mask':
+            return MaskBaseDataset.mask_classes
+        elif split == 'gender':
+            return MaskBaseDataset.gender_classes
+        elif split == 'age':
+            return MaskBaseDataset.age_classes
+        else:
+            return MaskBaseDataset.num_classes
 
     @staticmethod
     def encode_multi_class(mask_label, gender_label, age_label) -> int:
