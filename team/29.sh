@@ -48,10 +48,12 @@ case $dataset in
     ;;
 
     1)
-        dataset="MaskSplitByProfileDataset"
+        dataset="MaskSplitByClassDataset"
     ;;
 esac
+
 echo "choose augmentation, 0 to base, 1 to custom"
+
 read Aug
 
 if [ -z "$Aug" ]; then
