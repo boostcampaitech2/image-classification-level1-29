@@ -151,7 +151,6 @@ def train(data_dir, model_dir, args):
         dataset_module = getattr(import_module("dataset"), args.dataset)  # default: BaseAugmentation
         dataset = dataset_module(
             data_dir=data_dir,
-            data_dir2='/opt/ml/input/data/train/cropped_images',
             split=train_split,
         )
         num_classes = dataset.getClassNum(train_split)  # 18
@@ -220,7 +219,8 @@ def train(data_dir, model_dir, args):
 
         best_val_acc = 0
         best_val_loss = np.inf
-        
+        best_f1_score = 0
+
         early_stopping_counter=0
 
         for epoch in range(args.epochs):
@@ -309,10 +309,17 @@ def train(data_dir, model_dir, args):
 
                 val_loss = np.sum(val_loss_items) / len(val_loader)
                 val_acc = np.sum(val_acc_items) / len(val_set)
+                new_f1_score = f1_score(total_label.cpu(),total_pred.cpu(),average='weighted')
                 best_val_loss = min(best_val_loss, val_loss)
-                if val_acc > best_val_acc:
+                
+
+                if best_f1_score < new_f1_score:
                     early_stopping_flag=False
                     early_stopping_counter=0
+                    best_f1_score = new_f1_score
+
+                if val_acc > best_val_acc:
+                    
                     print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..")
                     if train_split == 'all':
                         torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
@@ -327,7 +334,7 @@ def train(data_dir, model_dir, args):
                     logger.add_scalar("Val/loss", val_loss, epoch)
                     logger.add_scalar("Val/accuracy", val_acc, epoch)
                     logger.add_figure("results", figure, epoch)'''
-
+                
                 train_cm=conf_mat(train_total_label.cpu(),train_total_pred.cpu())
                 val_cm=conf_mat(total_label.cpu(),total_pred.cpu())
                 wandb.log({'train loss': train_loss, 'train acc' : train_acc,'train confusion matrix' : wandb.Image(train_cm),'val loss' : val_loss, 'val acc' :val_acc,'val confusion matrix' : wandb.Image(val_cm)})
@@ -356,7 +363,6 @@ if __name__ == '__main__':
 
     # Data and model checkpoints directories
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
-
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs to train (default: 1)')
     parser.add_argument('--dataset', type=str, default='MaskSplitByClassDataset', help='dataset augmentation type (default: MaskBaseDataset)')
     parser.add_argument('--augmentation', type=str, default='BaseAugmentation', help='data augmentation type (default: BaseAugmentation)')
