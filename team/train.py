@@ -15,6 +15,7 @@ import pandas as pd
 import seaborn as sns
 import torch
 from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR, ReduceLROnPlateau
+import torch_optimizer as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import f1_score, confusion_matrix
@@ -215,12 +216,15 @@ def train(data_dir, model_dir, args):
 
         # -- loss & metric
         criterion = create_criterion(args.criterion)  # default: cross_entropy
-        opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
-        optimizer = opt_module(
-            filter(lambda p: p.requires_grad, model.parameters()),
-            lr=args.lr,
-            weight_decay=5e-4
-        )
+        if args.optimizer == "RAdam":
+            optimizer = optim.RAdam(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=1e-4)
+        else:
+            opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
+            optimizer = opt_module(
+                filter(lambda p: p.requires_grad, model.parameters()),
+                lr=args.lr,
+                weight_decay=5e-4
+            )
         if args.scheduler == "StepLR":
             scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
         elif args.scheduler == "CosineAnnealingLR":
