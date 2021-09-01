@@ -14,6 +14,7 @@ from pandas_streaming.df import train_test_apart_stratify
 from torchvision import transforms
 from torchvision.transforms import *
 from facenet_pytorch import MTCNN
+from auto_augment import AutoAugment, Cutout
 
 
 IMG_EXTENSIONS = [
@@ -43,6 +44,49 @@ class CenterCropResize:
         self.transform = transforms.Compose([
             CenterCrop((350, 300)),
             Resize(resize, Image.BILINEAR),
+            ToTensor(),
+            Normalize(mean=mean, std=std),
+        ])
+
+    def __call__(self, image):
+        return self.transform(image)
+
+
+class AutoAugmentation:
+    def __init__(self, resize, mean, std, **args):
+        self.transform = transforms.Compose([
+            CenterCrop((350, 300)),
+            Resize(resize, Image.BILINEAR),
+            AutoAugment(),
+            ToTensor(),
+            Normalize(mean=mean, std=std),
+        ])
+
+    def __call__(self, image):
+        return self.transform(image)
+
+
+class AutoAugCutout:
+    def __init__(self, resize, mean, std, **args):
+        self.transform = transforms.Compose([
+            CenterCrop((350, 300)),
+            Resize(resize, Image.BILINEAR),
+            AutoAugment(),
+            Cutout(),
+            ToTensor(),
+            Normalize(mean=mean, std=std),
+        ])
+
+    def __call__(self, image):
+        return self.transform(image)
+
+
+class CutoutAugmentation:
+    def __init__(self, resize, mean, std, **args):
+        self.transform = transforms.Compose([
+            CenterCrop((350, 300)),
+            Resize(resize, Image.BILINEAR),
+            Cutout(),
             ToTensor(),
             Normalize(mean=mean, std=std),
         ])
