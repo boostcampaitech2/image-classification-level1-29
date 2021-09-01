@@ -22,6 +22,10 @@ echo "	    5. Inception-ResnetV2		            "
 echo "	    6. Inception-ResnetV1,FaceNet           "
 echo "=============================================="
 
+
+
+
+
 read modelnumber
 echo "Please enter epoch number, if you don't, it will be 10."
 
@@ -47,33 +51,45 @@ case $dataset in
         dataset="MaskSplitByProfileDataset"
     ;;
 esac
+echo "choose augmentation, 0 to base, 1 to custom"
+read Aug
+if [ -z "$Aug" ]; then
+    Aug=0
+fi
 
+case $Aug in
+    0)
+        Aug="BaseAugmentation"
+    ;;
 
+    1)
+        Aug="CustomAugmentation"
+    ;;
 
 
 case $modelnumber in
     1)
-        python3 train.py --model EfficientNet_b3 --epoch $epochnumber --dataset $dataset --name $name
+        python3 train.py --model EfficientNet_b3 --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
     ;;
 
 	2) 
-        python3 train.py --model Res2Next50 --epoch $epochnumber --dataset $dataset --name $name
+        python3 train.py --model Res2Next50 --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
     ;;
 
     3) 
-        python3 train.py --model ResNext50 --epoch $epochnumber --dataset $dataset --name $name
+        python3 train.py --model ResNext50 --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
     ;;
 
     4) 
-        python3 train.py --model DenseNet121 --epoch $epochnumber --dataset $dataset --name $name
+        python3 train.py --model DenseNet121 --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
     ;;
 
     5)
-        python3 train.py --model InceptionResnetv2 --epoch $epochnumber --dataset $dataset --name $name
+        python3 train.py --model InceptionResnetv2 --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
     ;;
 
     6)
-        python3 train.py --model InR --epoch $epochnumber --dataset $dataset --name $name
+        python3 train.py --model InR --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
     ;;
     
 esac
