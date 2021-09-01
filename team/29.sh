@@ -53,6 +53,7 @@ case $dataset in
 esac
 echo "choose augmentation, 0 to base, 1 to custom"
 read Aug
+
 if [ -z "$Aug" ]; then
     Aug=0
 fi
@@ -65,7 +66,7 @@ case $Aug in
     1)
         Aug="CustomAugmentation"
     ;;
-
+esac
 
 case $modelnumber in
     1)
