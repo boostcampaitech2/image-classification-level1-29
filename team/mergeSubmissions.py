@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 
-OUTPUT_DIR = '/opt/ml/image-classification-level1-29/output'
+OUTPUT_DIR = '/opt/ml/image-classification-level1-29/team/output'
 
 def merge():
     data1 = pd.read_csv(os.path.join(OUTPUT_DIR, 'output_mask.csv'))
