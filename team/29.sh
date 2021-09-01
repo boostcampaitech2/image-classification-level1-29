@@ -19,7 +19,7 @@ else
     trainsplit="one_by_one"
     echo "Do you want to split wandb project one by one too? Input anything"
     read projectsplit
-    if [ -z "$trainsplit" ]; then
+    if [ -z "$projectsplit" ]; then
         projectsplit=0
     else
         projectsplit=1
