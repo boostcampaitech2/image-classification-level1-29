@@ -56,7 +56,9 @@ class AddGaussianNoise(object):
 class CustomAugmentation:
     def __init__(self, resize, mean, std, **args):
         self.transform = transforms.Compose([
-            CenterCrop((320, 256)),
+            #CenterCrop((320, 256)),
+            RandomHorizontalFlip(0.5),
+            RandomRotation(degrees=[-30,30]),
             Resize(resize, Image.BILINEAR),
             ColorJitter(0.1, 0.1, 0.1, 0.1),
             ToTensor(),
@@ -372,7 +374,7 @@ class MaskSplitByClassDataset(Dataset):
         "incorrect_mask": MaskLabels.INCORRECT,
         "normal": MaskLabels.NORMAL
     }
-
+    
     def __init__(self, data_dir, split, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
         self.data_dir = data_dir
         self.split = split
@@ -391,6 +393,26 @@ class MaskSplitByClassDataset(Dataset):
         self.transform = None
         self.setup()
         self.calc_statistics()
+    
+    # def __init__(self, data_dir, data_dir2, split, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
+    #     self.data_dir = data_dir
+    #     self.data_dir2 = data_dir2
+    #     self.split = split
+    #     self.mean = mean
+    #     self.std = std
+    #     self.val_ratio = val_ratio
+
+    #     self.image_paths = []
+    #     self.mask_labels = []
+    #     self.gender_labels = []
+    #     self.age_labels = []
+    #     self.all_labels = []
+    #     self.indexs = []
+    #     self.groups = []
+
+    #     self.transform = None
+    #     self.setup()
+    #     self.calc_statistics()
 
     def setup(self):
         cnt = 0
