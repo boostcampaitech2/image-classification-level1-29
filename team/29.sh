@@ -10,23 +10,104 @@ if [ -z "$name" ]; then
     name='exp'
 fi
 
-echo "Please enter model number from below"
+echo "Do you want to train model one by one? Input anything"
+read trainsplit
+
+if [ -z "$trainsplit" ]; then
+    trainsplit=0
+else
+    trainsplit="one_by_one"
+    echo "Do you want to split wandb project one by one too? Input anything"
+    read projectsplit
+fi
+echo "Please enter model number from below or Input model name what you want."
 
 echo "=============================================="
 echo "===============Model Menu====================="
-echo "            1. EfficientNetB3		                "
+echo "            1. EfficientNetB3		            "
 echo "	    2. Res2Next50		                    "
 echo "	    3. ResNext50		  	                "
 echo "	    4. DenseNet121			                "
 echo "	    5. Inception-ResnetV2		            "
 echo "	    6. Inception-ResnetV1,FaceNet           "
+echo "	    7. I want another model                 "
 echo "=============================================="
 
+if [ -z "$trainsplit" ]; then
+    read modelnumber
+    case $modelnumber in
+        1)
+            modelname="EfficientNet_b3"
+        ;;
+        2)
+            modelname="Res2Next50"
+        ;;
+        3)
+            modelname="ResNext50"
+        ;;
+        4)
+            modelname="DenseNet121"
+        ;;
+        5)
+            modelname="InceptionResnetv2"
+        ;;
+        6)
+            modelname="InR"
+        ;;
+        7)
+            echo "Enter the name of model you want to apply"
+            read modelname
+        ;;
+    esac
+    echo "You chose $modelname model"
+else
+    n=0
+    modelnames=""
+    while [ ${n} -le 2 ]; do
+        read modelnumber
+        case $modelnumber in
+            1)
+                modelname="EfficientNet_b3"
+            ;;
+            2)
+                modelname="Res2Next50"
+            ;;
+            3)
+                modelname="ResNext50"
+            ;;
+            4)
+                modelname="DenseNet121"
+            ;;
+            5)
+                modelname="InceptionResnetv2"
+            ;;
+            6)
+                modelname="InR"
+            ;;
+            7)
+                echo "Enter the name of model you want to apply"
+                read modelname
+            ;;
+        esac
+        case $n in
+            0)
+                echo "You chose $modelname model for mask"
+            ;;
+            1)
+                echo "You chose $modelname model for gender"
+            ;;
+            2)
+                echo "You chose $modelname model for age"
+            ;;
+        esac
+        n=$((n + 1))
+        modelnames+="${modelname}"
+        if [ ${n} -le 2 ]; then
+            modelnames+=','
+        fi
+    done
+fi
 
-
-
-
-read modelnumber
 echo "Please enter epoch number, if you don't, it will be 10."
 
 read epochnumber
@@ -35,7 +116,13 @@ if [ -z "$epochnumber" ]; then
     epochnumber=10
 fi
 
-echo "0 to use Maskbaseset,1 to use MaskSplitByProfileDataset"
+echo "Choose Dataset, Default is 1."
+echo "=============================================="
+echo "=================Aug Menu====================="
+echo "            1. MaskSplitByClassDataset		"
+echo "	    2. MaskBaseDataset		                "
+echo "	    3. I want another Dataset               "
+echo "=============================================="
 read dataset
 
 if [ -z "$dataset" ]; then
@@ -43,57 +130,55 @@ if [ -z "$dataset" ]; then
 fi
 
 case $dataset in
-    0)
-        dataset="MaskBaseDataset"
+    1)
+        dataset="MaskSplitByClassDataset"
     ;;
 
-    1)
-        dataset="MaskSplitByProfileDataset"
+    2)
+        dataset="MaskBaseDataset"
+    ;;
+    3)
+        echo "Enter the name of dataset you want to apply"
+        read dataset
     ;;
 esac
-echo "choose augmentation, 0 to base, 1 to custom"
+echo "You chose $dataset for dataset"
+
+echo "Choose Augmentations, Default is 1."
+echo "=============================================="
+echo "=================Aug Menu====================="
+echo "            1. BaseAugmentation		        "
+echo "	    2. CustomAugmentation		            "
+echo "	    3. I want another Aug                   "
+echo "=============================================="
 read Aug
 
 if [ -z "$Aug" ]; then
-    Aug=0
+    Aug=1
 fi
 
 case $Aug in
-    0)
+    1)
         Aug="BaseAugmentation"
     ;;
 
-    1)
+    2)
         Aug="CustomAugmentation"
     ;;
+    3)
+        echo "Enter the name of Aug you want to apply"
+        read Aug
+    ;;
 esac
+echo "You chose $Aug for augmentations"
 
-case $modelnumber in
-    1)
-        python3 train.py --model EfficientNet_b3 --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
-    ;;
-
-	2) 
-        python3 train.py --model Res2Next50 --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
-    ;;
-
-    3) 
-        python3 train.py --model ResNext50 --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
-    ;;
-
-    4) 
-        python3 train.py --model DenseNet121 --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
-    ;;
-
-    5)
-        python3 train.py --model InceptionResnetv2 --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
-    ;;
-
-    6)
-        python3 train.py --model InR --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
-    ;;
-    
-esac
+if [ -z $trainsplit ]; then
+    python3 train.py --model $modelname --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug
+elif [ -z "$projectsplit" ]; then
+    python3 train.py --models $modelnames --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug --train_split $trainsplit
+else
+    python3 train.py --models $modelnames --epoch $epochnumber --dataset $dataset --name $name --augmentation $Aug --train_split $trainsplit --project_split $projectsplit
+fi
 
 
 
