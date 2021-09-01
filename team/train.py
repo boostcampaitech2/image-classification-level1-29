@@ -125,6 +125,26 @@ def isModelsValid(models):
             return False
     return True
 
+def rand_bbox(size, lam):
+    # reference : https://github.com/clovaai/CutMix-PyTorch/blob/2d8eb68faff7fe4962776ad51d175c3b01a25734/train.py#L279
+    W = size[2] 
+    H = size[3] 
+    cut_rat = np.sqrt(1. - lam)
+    cut_w = np.int(W * cut_rat)
+    cut_h = np.int(H * cut_rat)  
+
+   	# uniform
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+
+    # 세로축으로만 자르기
+    bbx1 = 0
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = W
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+
+    return bbx1, bby1, bbx2, bby2
+
 def train(data_dir, model_dir, args):
     if not args.project_split or args.train_split=='all':
         wandb.init(project=args.name, entity='team29',config=config)
@@ -145,8 +165,6 @@ def train(data_dir, model_dir, args):
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda" if use_cuda else "cpu")
         
-        
-
         # -- dataset
         dataset_module = getattr(import_module("dataset"), args.dataset)  # default: BaseAugmentation
         dataset = dataset_module(
@@ -238,9 +256,22 @@ def train(data_dir, model_dir, args):
 
                     optimizer.zero_grad()
 
-                    outs = model(inputs)
+                    # reference : https://github.com/clovaai/CutMix-PyTorch/blob/master/train.py#L228
+                    if args.BETA > 0 and np.random.random() > 0.5: # cutmix가 실행될 경우     
+                        lam = np.random.beta(args.BETA, args.BETA)
+                        rand_index = torch.randperm(inputs.size()[0]).to(device)
+                        target_a = labels # 원본 이미지 label
+                        target_b = labels[rand_index] # 패치 이미지 label       
+                        bbx1, bby1, bbx2, bby2 = rand_bbox(inputs.size(), lam)
+                        inputs[:, :, bbx1:bbx2, bby1:bby2] = inputs[rand_index, :, bbx1:bbx2, bby1:bby2]
+                        lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (inputs.size()[-1] * inputs.size()[-2]))
+                        outs = model(inputs)
+                        loss = criterion(outs, target_a) * lam + criterion(outs, target_b) * (1. - lam) # 패치 이미지와 원본 이미지의 비율에 맞게 loss를 계산을 해주는 부분
+                    else:
+                        outs = model(inputs)
+                        loss = criterion(outs, labels)
+
                     preds = torch.argmax(outs, dim=-1)
-                    loss = criterion(outs, labels)
 
                     loss.backward()
                     optimizer.step()
@@ -358,6 +389,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs to train (default: 1)')
     parser.add_argument('--dataset', type=str, default='MaskSplitByClassDataset', help='dataset augmentation type (default: MaskBaseDataset)')
     parser.add_argument('--augmentation', type=str, default='BaseAugmentation', help='data augmentation type (default: BaseAugmentation)')
+    parser.add_argument('--BETA', type=float, default=-1.0, help="If you want CutMix, give 1.0 (default: -1.0)")
     parser.add_argument("--resize", nargs="+", type=list, default=[224,224], help='resize size for image when training')
     parser.add_argument('--batch_size', type=int, default=32, help='input batch size for training (default: 64)')
     parser.add_argument('--valid_batch_size', type=int, default=32, help='input batch size for validing (default: 1000)')
@@ -385,7 +417,15 @@ if __name__ == '__main__':
 
     data_dir = args.data_dir
     model_dir = args.model_dir
-    config = {'epochs':args.epochs,'batch_size':args.batch_size,'learning_rate':args.lr}
+    config = {
+        'seed':args.seed, 'epochs':args.epochs, 'dataset':args.dataset, 'augmentation':args.augmentation,
+        'resize':args.resize, 'batch_size':args.batch_size, 'validd_batch_size':args.valid_batch_size,
+        'model':args.model, 'models':args.models, 'optimizer':args.optimizer, 'scheduler':args.scheduler, 
+        'lr':args.lr, 'val_ratio':args.val_ratio, 'criterion':args.criterion, 'lr_decay_step':args.lr_decay_step, 
+        'log_interval':args.log_interval, 'name':args.name, 'weight':args.weight,
+        'train_split':args.train_split, 'project_split':args.project_split,
+        'data_dir':args.data_dir, 'model_dir':args.model_dir
+    }
     
     train(data_dir, model_dir, args)
     
