@@ -6,7 +6,7 @@ echo "Wish you get 0.9 f1 score this time..."
 echo "Please enter project name, if you don't ,it will be exp"
 read name
 
-if [ -z "$name"]; then
+if [ -z "$name" ]; then
     name='exp'
 fi
 
@@ -19,6 +19,7 @@ echo "	    2. Res2Next50		                    "
 echo "	    3. ResNext50		  	                "
 echo "	    4. DenseNet121			                "
 echo "	    5. Inception-ResnetV2		            "
+echo "	    6. Inception-ResnetV1,FaceNet           "
 echo "=============================================="
 
 read modelnumber
@@ -30,10 +31,10 @@ if [ -z "$epochnumber" ]; then
     epochnumber=10
 fi
 
-echo "0 to use Maskbaseset,1 to use MaskSplitDataset"
+echo "0 to use Maskbaseset,1 to use MaskSplitByProfileDataset"
 read dataset
 
-if [ -z "$dataset"]; then
+if [ -z "$dataset" ]; then
     dataset=1
 fi
 
@@ -43,7 +44,7 @@ case $dataset in
     ;;
 
     1)
-        dataset="MaskSplitDataset"
+        dataset="MaskSplitByProfileDataset"
     ;;
 esac
 
@@ -69,6 +70,10 @@ case $modelnumber in
 
     5)
         python3 train.py --model InceptionResnetv2 --epoch $epochnumber --dataset $dataset --name $name
+    ;;
+
+    6)
+        python3 train.py --model InR --epoch $epochnumber --dataset $dataset --name $name
     ;;
     
 esac
