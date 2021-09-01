@@ -137,25 +137,34 @@ def train(data_dir, model_dir, args):
     dataset.set_transform(transform)
 
     # -- data_loader
-    train_set, val_set = dataset.split_dataset()
+    if args.split == "yes":
+        train_set, val_set = dataset.split_dataset()
+        train_loader = DataLoader(
+            train_set,
+            batch_size=args.batch_size,
+            num_workers=4,
+            shuffle=True,
+            pin_memory=use_cuda,
+            drop_last=True,
+        )
 
-    train_loader = DataLoader(
-        train_set,
-        batch_size=args.batch_size,
-        num_workers=4,
-        shuffle=True,
-        pin_memory=use_cuda,
-        drop_last=True,
-    )
-
-    val_loader = DataLoader(
-        val_set,
-        batch_size=args.valid_batch_size,
-        num_workers=4,
-        shuffle=False,
-        pin_memory=use_cuda,
-        drop_last=True,
-    )
+        val_loader = DataLoader(
+            val_set,
+            batch_size=args.valid_batch_size,
+            num_workers=4,
+            shuffle=False,
+            pin_memory=use_cuda,
+            drop_last=True,
+        )
+    else:
+        train_loader = DataLoader(
+            dataset,
+            batch_size=args.batch_size,
+            num_workers=4,
+            shuffle=True,
+            pin_memory=use_cuda,
+            drop_last=True,
+        )
 
     # -- model
     model_module = getattr(import_module("model"), args.model)  # default: BaseModel
@@ -190,11 +199,14 @@ def train(data_dir, model_dir, args):
     best_val_acc = 0
     best_val_loss = np.inf
     best_val_f1 = 0
+    best_train_f1 = 0
     for epoch in range(args.epochs):
         # train loop
         model.train()
         loss_value = 0
         matches = 0
+        epoch_f1 = 0
+        n_iter = 0
         for idx, train_batch in enumerate(train_loader):
             inputs, labels = train_batch
             inputs = inputs.to(device)
@@ -224,10 +236,13 @@ def train(data_dir, model_dir, args):
 
             loss_value += loss.item()
             matches += (preds == labels).sum().item()
+            iteration_f1 = f1_score(preds.cpu().numpy(), labels.cpu().numpy(), average='macro')
+            epoch_f1 += iteration_f1
+            n_iter += 1
             if (idx + 1) % args.log_interval == 0:
                 train_loss = loss_value / args.log_interval
                 train_acc = matches / args.batch_size / args.log_interval
-                train_f1_macro = f1_score(preds.cpu().numpy(), labels.cpu().numpy(), average='macro')
+                train_f1_macro = epoch_f1 / n_iter
                 current_lr = get_lr(optimizer)
                 print(
                     f"Epoch[{epoch}/{args.epochs}]({idx + 1}/{len(train_loader)}) || "
@@ -242,6 +257,23 @@ def train(data_dir, model_dir, args):
                 matches = 0
 
         scheduler.step()
+
+        epoch_f1 = epoch_f1 / n_iter
+
+        if args.split == "no":
+            if epoch_f1 > best_train_f1:
+                valid_early_stop = 0
+                print(f"New best model for f1 score : {epoch_f1:4.4}! saving the best model..")
+                torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
+                best_train_f1 = epoch_f1
+            else:
+                # early stopping    
+                valid_early_stop += 1
+                if valid_early_stop >= EARLY_STOPPING_EPOCH:  # patience
+                    print("EARLY STOPPING!!")
+                    break
+            torch.save(model.module.state_dict(), f"{save_dir}/last.pth")
+            continue
 
         # val loop
         with torch.no_grad():
@@ -315,27 +347,27 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
     parser.add_argument('--epochs', type=int, default=30, help='number of epochs to train (default: 30)')
     parser.add_argument('--dataset', type=str, default='MaskBaseDataset', help='dataset augmentation type (default: MaskBaseDataset)')
-    parser.add_argument('--augmentation', type=str, default='BaseAugmentation', help='data augmentation type (default: BaseAugmentation)')
+    parser.add_argument('--augmentation', type=str, default='CenterCropResize', help='data augmentation type (default: CenterCropResize)')
     parser.add_argument("--resize", nargs="+", type=list, default=[224, 224], help='resize size for image when training')
     parser.add_argument('--batch_size', type=int, default=64, help='input batch size for training (default: 64)')
     parser.add_argument('--valid_batch_size', type=int, default=64, help='input batch size for validing (default: 64)')
     parser.add_argument('--model', type=str, default='EfficientNet_b3', help='model type (default: EfficientNet_b3)')
-    parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer type (default: Adam)')
-    parser.add_argument('--scheduler', type=str, default='StepLR', help='scheduler type (default: StepLR)')
+    parser.add_argument('--optimizer', type=str, default='RAdam', help='optimizer type (default: Adam)')
+    parser.add_argument('--scheduler', type=str, default='CosineAnnealingLR', help='scheduler type (default: StepLR)')
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate (default: 1e-3)')
     parser.add_argument('--val_ratio', type=float, default=0.2, help='ratio for validaton (default: 0.2)')
     parser.add_argument('--criterion', type=str, default='cross_entropy', help='criterion type (default: cross_entropy)')
     parser.add_argument('--lr_decay_step', type=int, default=20, help='learning rate scheduler deacy step (default: 20)')
     parser.add_argument('--log_interval', type=int, default=20, help='how many batches to wait before logging training status')
     parser.add_argument('--name', default='exp', help='model save at {SM_MODEL_DIR}/{name}')
-    parser.add_argument('--BETA', type=float, default=1.0, help='for CutMix (default: 1.0)')
+    parser.add_argument('--BETA', type=float, default=1.0, help="If you don't want CutMix, give -1.0 (default: 1.0)")
+    parser.add_argument('--split', type=str, default="yes", help="If you don't want train/valid split, give no (default: yes)")
 
     # Container environment
     parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/images'))
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR', './model'))
 
     args = parser.parse_args()
-    print(args)
 
     config = wandb.config
     config = args
@@ -351,6 +383,7 @@ if __name__ == '__main__':
         'criterion':args.criterion, 'lr_decay_step':args.lr_decay_step, 'log_interval':args.log_interval, 
         'exp_name':args.name, 'data_dir':args.data_dir, 'model_dir':args.model_dir
     }
-    wandb.init(project='mask-status-classification', entity='hrlee', config=config)
+    wandb.init(project='mask-status-classification', entity='hrlee', config=config, name=args.name)
+    print(args)
 
     train(data_dir, model_dir, args)
