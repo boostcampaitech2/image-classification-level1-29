@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import torch
-from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
+from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR, ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics import f1_score, confusion_matrix
@@ -22,6 +22,8 @@ from dataset import MaskBaseDataset
 from loss import create_criterion
 import warnings
 warnings.filterwarnings(action='ignore')
+
+EARLY_STOPPING_PATIENCE = 3
 
 TrainSplitNum = {
     'all': ['all'],
@@ -205,6 +207,8 @@ def train(data_dir, model_dir, args):
             scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
         elif args.scheduler == "CosineAnnealingLR":
             scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
+        elif args.scheduler == "ReduceLROnPlateau":
+            scheduler = ReduceLROnPlateau(optimizer, factor = 0.1, patience = 10)
         else:
             raise ValueError
 
@@ -216,6 +220,8 @@ def train(data_dir, model_dir, args):
         best_val_acc = 0
         best_val_loss = np.inf
         
+        early_stopping_counter=0
+
         for epoch in range(args.epochs):
             # train loop
             model.train()
@@ -262,13 +268,14 @@ def train(data_dir, model_dir, args):
                 train_total_label=total_label
             
             
-
-            scheduler.step()
+            if not args.scheduler == 'ReduceLROnPlateau':
+                scheduler.step()
 
             # val loop
             with torch.no_grad():
                 print("Calculating validation results...")
                 model.eval()
+                early_stopping_flag = True
                 val_loss_items = []
                 val_acc_items = []
                 #figure = None
@@ -302,6 +309,8 @@ def train(data_dir, model_dir, args):
                 val_acc = np.sum(val_acc_items) / len(val_set)
                 best_val_loss = min(best_val_loss, val_loss)
                 if val_acc > best_val_acc:
+                    early_stopping_flag=False
+                    early_stopping_counter=0
                     print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..\n")
                     if train_split == 'all':
                         torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
@@ -316,6 +325,7 @@ def train(data_dir, model_dir, args):
                     logger.add_scalar("Val/loss", val_loss, epoch)
                     logger.add_scalar("Val/accuracy", val_acc, epoch)
                     logger.add_figure("results", figure, epoch)'''
+
                 if train_split == 'all':
                     train_cm=conf_mat(train_total_label.cpu(),train_total_pred.cpu())
                     val_cm=conf_mat(total_label.cpu(),total_pred.cpu())
@@ -323,6 +333,15 @@ def train(data_dir, model_dir, args):
                     plt.close()
                 else:
                     wandb.log({'train loss': train_loss, 'train acc' : train_acc,'val loss' : val_loss, 'val acc' :val_acc })
+
+                if early_stopping_flag:
+                    early_stopping_counter+=1
+                    
+                    if early_stopping_counter >= EARLY_STOPPING_PATIENCE:
+                        print("EARLY STOPPING")
+                        break
+                
+
 
 
 if __name__ == '__main__':
@@ -334,7 +353,7 @@ if __name__ == '__main__':
 
     # Data and model checkpoints directories
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
-    parser.add_argument('--epochs', type=int, default=10, help='number of epochs to train (default: 1)')
+    parser.add_argument('--epochs', type=int, default=100, help='number of epochs to train (default: 1)')
     parser.add_argument('--dataset', type=str, default='MaskBaseDataset', help='dataset augmentation type (default: MaskBaseDataset)')
     parser.add_argument('--augmentation', type=str, default='BaseAugmentation', help='data augmentation type (default: BaseAugmentation)')
     parser.add_argument("--resize", nargs="+", type=list, default=[224,224], help='resize size for image when training')
