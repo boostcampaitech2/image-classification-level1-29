@@ -507,13 +507,13 @@ class MaskSplitByClassDataset(Dataset):
     @staticmethod
     def getClassNum(split):
         if split == 'mask':
-            return MaskBaseDataset.mask_classes
+            return MaskSplitByClassDataset.mask_classes
         elif split == 'gender':
-            return MaskBaseDataset.gender_classes
+            return MaskSplitByClassDataset.gender_classes
         elif split == 'age':
-            return MaskBaseDataset.age_classes
+            return MaskSplitByClassDataset.age_classes
         else:
-            return MaskBaseDataset.num_classes
+            return MaskSplitByClassDataset.num_classes
 
     @staticmethod
     def encode_multi_class(mask_label, gender_label, age_label) -> int:
