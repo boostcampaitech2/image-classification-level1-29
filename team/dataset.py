@@ -12,6 +12,7 @@ from torchvision import transforms
 from torchvision.transforms import *
 import pandas as pd
 from pandas_streaming.df import train_test_apart_stratify
+from sklearn.model_selection import train_test_split
 
 
 IMG_EXTENSIONS = [
@@ -527,10 +528,16 @@ class MaskSplitByClassDataset(Dataset):
         return img_cp
 
     def split_dataset(self) -> Tuple[Subset, Subset]:
-        df = pd.DataFrame({"indexs":self.indexs, "groups":self.groups, "labels":self.all_labels})
-
+        if self.split == 'all':
+            df = pd.DataFrame({"indexs":self.indexs, "groups":self.groups, "labels":self.all_labels})
+        elif self.split == 'mask':
+            df = pd.DataFrame({"indexs":self.indexs, "groups":self.groups, "labels":self.mask_labels})
+        elif self.split == 'gender':
+            df = pd.DataFrame({"indexs":self.indexs, "groups":self.groups, "labels":self.gender_labels})
+        elif self.split == 'age':
+            df = pd.DataFrame({"indexs":self.indexs, "groups":self.groups, "labels":self.age_labels})
+        
         train, valid = train_test_apart_stratify(df, group="groups", stratify="labels", test_size=self.val_ratio)
         train_index = train["indexs"].tolist()
         valid_index = valid["indexs"].tolist()
-
         return  [Subset(self, train_index), Subset(self, valid_index)]
