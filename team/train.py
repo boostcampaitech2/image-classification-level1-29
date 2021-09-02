@@ -330,6 +330,9 @@ def train(data_dir, model_dir, args):
                         print("EARLY STOPPING!!")
                         break
                 torch.save(model.module.state_dict(), f"{save_dir}/last.pth")
+                wandb.log({
+                    'train loss': train_loss, 'train acc': train_acc, 'train_f1_macro': train_f1_macro, 'train confusion matrix': wandb.Image(train_cm),
+                })
                 continue
 
             # val loop
@@ -445,7 +448,8 @@ if __name__ == '__main__':
         'lr':args.lr, 'val_ratio':args.val_ratio, 'criterion':args.criterion, 'lr_decay_step':args.lr_decay_step, 
         'log_interval':args.log_interval, 'name':args.name, 'weight':args.weight,
         'train_split':args.train_split, 'project_split':args.project_split,
-        'data_dir':args.data_dir, 'model_dir':args.model_dir
+        'data_dir':args.data_dir, 'model_dir':args.model_dir,
+        'patience':args.patience, 'BETA':args.BETA, 'full_train':args.full_train
     }
     
     train(data_dir, model_dir, args)
