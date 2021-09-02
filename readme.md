@@ -1,18 +1,16 @@
 # Project : Mask Image Classification
 
-
-
 주어진 사람 이미지를 3가지로 분류하는 문제입니다.
 
 
 
 #### 3가지 기준
 
-* **Mask** : Not wear, Incorrect, Wear
+* **Mask** : `Not wear`,   ` Incorrect`,    `Wear`
 
-* **Gender** : Male, Female
+* **Gender** : `Male`,    `Female`
 
-* **Age** : 0 ~ 29, 30 ~ 59, 60~
+* **Age** : `0 ~ 29`,    `30 ~ 59`,    `60~`
 
 
 
@@ -36,7 +34,11 @@ COVID-19의 확산으로 우리나라는 물론 전 세계 사람들은 경제�
 
 필요한 패키지들은 아래 명령어를 통해 설치 가능합니다.
 
-`pip install -r requirements.txt`
+
+
+``` pip install -r requirements.txt 
+pip install -r requirements.txt
+```
 
 
 
@@ -51,6 +53,4 @@ COVID-19의 확산으로 우리나라는 물론 전 세계 사람들은 경제�
 
 
 #### 3. hyperparameter tuning을 하며 학습시키기
-
-
 
