@@ -4,6 +4,8 @@
 
 
 
+<br>
+
 #### 3가지 기준
 
 * **Mask** : `Not wear`,   ` Incorrect`,    `Wear`
@@ -14,9 +16,15 @@
 
 
 
+<br>
+
 
 
 ### Model Structure
+
+
+
+<br>
 
 
 
@@ -27,6 +35,10 @@ COVID-19의 확산으로 우리나라는 물론 전 세계 사람들은 경제�
 감염자의 입, 호흡기로부터 나오는 비말, 침 등으로 인해 다른 사람에게 쉽게 전파가 될 수 있기 때문에 감염 확산 방지를 위해 무엇보다 중요한 것은 모든 사람이 마스크로 코와 입을 가려서 혹시 모를 감염자로부터의 전파 경로를 원천 차단하는 것입니다. 이를 위해 공공 장소에 있는 사람들은 반드시 마스크를 착용해야 할 필요가 있으며, 무엇 보다도 코와 입을 완전히 가릴 수 있도록 올바르게 착용하는 것이 중요합니다. 하지만 넓은 공공장소에서 모든 사람들의 올바른 마스크 착용 상태를 검사하기 위해서는 추가적인 인적자원이 필요할 것입니다.
 
 따라서, 우리는 카메라로 비춰진 사람 얼굴 이미지 만으로 이 사람이 마스크를 쓰고 있는지, 쓰지 않았는지, 정확히 쓴 것이 맞는지 자동으로 가려낼 수 있는 시스템이 필요합니다. 이 시스템이 공공장소 입구에 갖춰져 있다면 적은 인적자원으로도 충분히 검사가 가능할 것입니다.
+
+
+
+<br>
 
 
 
@@ -42,6 +54,10 @@ pip install -r requirements.txt
 
 
 
+<br>
+
+
+
 ### Get Started
 
 #### 1. Source code clone 하기
@@ -53,4 +69,21 @@ pip install -r requirements.txt
 
 
 #### 3. hyperparameter tuning을 하며 학습시키기
+
+
+
+```
+python train.py
+--batch_size=32
+--resize=(384,384)
+--model=EfficientNet_b3
+--nworkers=4
+--lr=1e-3
+--epochs=100
+--optimizer=Adam
+--criterion=cross_entropy
+--scheduler=CosineAnnealingLR
+--augmentation=CustomAugmentation
+--patience=3
+```
 
