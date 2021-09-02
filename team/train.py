@@ -330,6 +330,7 @@ def train(data_dir, model_dir, args):
                         print("EARLY STOPPING!!")
                         break
                 torch.save(model.module.state_dict(), f"{save_dir}/last.pth")
+                train_cm=conf_mat(train_total_label.cpu(), train_total_pred.cpu())
                 wandb.log({
                     'train loss': train_loss, 'train acc': train_acc, 'train_f1_macro': train_f1_macro, 'train confusion matrix': wandb.Image(train_cm),
                 })
