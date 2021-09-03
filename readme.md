@@ -22,6 +22,7 @@
 
 ### Model Structure
 
+![Untitled Diagram drawio](https://user-images.githubusercontent.com/88299729/132021638-3484885d-2186-46cb-ad6a-7afd2fd227a3.png)
 
 
 <br>
