@@ -60,11 +60,32 @@ pip install -r requirements.txt
 
 ### Get Started
 
-#### 1. Source code clone 하기
+#### 1. Source code clone 하기 
+
+ ```
+git clone https://github.com/boostcampaitech2/image-classification-level1-29.git
+ ```
 
 
 
 #### 2. data set 준비하기
+
+
+
+```
++-- train/
+l       +--images/
+l              +--000001_female_Asian_45/
+l              +--000002_male_Asian_52/
+l              +--....
+l       +--train.csv/
++-- eval/
+l       +--images/
+l              +--f4jk2h4jk35j3k2h5jk3.jpg/
+l              +--g6hjk456jk5g6h45jkh.jpg/
+l              +--....
+l       +--info.csv/
+```
 
 
 
@@ -86,4 +107,3 @@ python train.py
 --augmentation=CustomAugmentation
 --patience=3
 ```
-
