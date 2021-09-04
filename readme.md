@@ -1,6 +1,6 @@
 # Project : Mask Image Classification
 
-## [Click Here! to check project wrap-up report](https://github.com/boostcampaitech2/image-classification-level1-29/blob/main/team/%E1%84%85%E1%85%B5%E1%84%91%E1%85%A9%E1%84%90%E1%85%B3_level1_29.pdf
+## [Click Here! to check project wrap-up report](https://github.com/boostcampaitech2/image-classification-level1-29/blob/main/team/%E1%84%85%E1%85%B5%E1%84%91%E1%85%A9%E1%84%90%E1%85%B3_level1_29.pdf)
 
 주어진 사람 이미지를 3가지로 분류하는 문제입니다.
 
