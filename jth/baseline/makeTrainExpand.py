@@ -2,16 +2,16 @@ import os
 import csv
 train_dir = '/opt/ml/input/data/train'
 
-def makeTrainExpandSex(train_dir):
+def makeTrainExpandGender(train_dir):
     with open(os.path.join(train_dir, 'train.csv'), 'r') as csvinput:
-        with open(os.path.join(train_dir, 'train_expand_sex.csv'), 'w') as csvoutput:
+        with open(os.path.join(train_dir, 'train_expand_gender.csv'), 'w') as csvoutput:
             writer = csv.writer(csvoutput, lineterminator='\n')
             reader = csv.reader(csvinput)
 
             all = []
             row = next(reader)
             row.append('file')
-            row.append('target_sex')
+            row.append('target_gender')
             all.append(row)
 
             for row in reader:
@@ -82,6 +82,6 @@ def makeTrainExpandAge(train_dir):
             writer.writerows(all)
 
 def makeExpandFiles():
-    makeTrainExpandSex(train_dir)
+    makeTrainExpandGender(train_dir)
     makeTrainExpandMask(train_dir)
     makeTrainExpandAge(train_dir)
